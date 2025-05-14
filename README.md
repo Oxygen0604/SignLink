@@ -51,48 +51,48 @@ SignLink 提供了**双向翻译能力**：
 
 ## 技术栈
 
-| 层级       | 技术方案                         |
-|------------|----------------------------------|
-| 前端       | React Native, Three.js, TypeScript |
-| 后端       | Python, Flask / FastAPI          |
-| 图像识别   | MediaPipe                        |
-| NLP        | 蓝心大模型, LSTM, spaCy / NLTK   |
-| 渲染引擎   | Three.js（3D 手势动画）          |
-| 部署平台   | Android, iOS, Web(后续)                |
+| 层级       | 技术方案                         |  
+|------------|----------------------------------|  
+| 前端       | React Native, Three.js, TypeScript |  
+| 后端       | Python, Flask / FastAPI          |  
+| 图像识别   | MediaPipe                        |  
+| NLP        | 蓝心大模型, LSTM, spaCy / NLTK   |  
+| 渲染引擎   | Three.js（3D 手势动画）          |  
+| 部署平台   | Android, iOS, Web(后续)                |  
 
 ---
 
 ## 项目目录结构
 
-SignLink/
-├── frontend/ # React Native 前端代码
-│ ├── pages/
-│ │ ├── SignToText/ # 手语翻译为文字页
-│ │ └── TextToSign/ # 文字翻译为手语页
-│ ├── components/
-│ │ └── HandModel3D/ # Three.js 3D 模型组件
-│ └── assets/
-├── backend/ # Python 后端服务
-│ ├── app.py
-│ ├── mediapipe_module/ # 图像识别
-│ └── nlp_module/ # LSTM + 语义模型
-├── public/ # 公共图像/视频资源
-├── models/ # 模型权重文件
-├── requirements.txt # Python 依赖
-└── README.md
+SignLink/  
+├── frontend/ # React Native 前端代码  
+│ ├── pages/  
+│ │ ├── SignToText/ # 手语翻译为文字页  
+│ │ └── TextToSign/ # 文字翻译为手语页  
+│ ├── components/  
+│ │ └── HandModel3D/ # Three.js 3D 模型组件  
+│ └── assets/  
+├── backend/ # Python 后端服务  
+│ ├── app.py  
+│ ├── mediapipe_module/ # 图像识别  
+│ └── nlp_module/ # LSTM + 语义模型  
+├── public/ # 公共图像/视频资源  
+├── models/ # 模型权重文件  
+├── requirements.txt # Python 依赖  
+└── README.md  
 
 ---
 
 ## 快速开始
 
 ### 后端运行
-cd backend/
-pip install -r requirements.txt
-python app.py
+cd backend/  
+pip install -r requirements.txt  
+python app.py  
 ### 前端运行（React Native）
-cd frontend/
-npm install
-npx react-native run-android   # 或 npx react-native run-ios
+cd frontend/  
+npm install  
+npx react-native run-android   # 或 npx react-native run-ios  
 
 ---
 
