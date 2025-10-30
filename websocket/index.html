@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>IP摄像头实时流</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 2em; }
+        #video-container { border: 1px solid #ccc; width: 640px; height: 480px; background-color: #000; }
+        #video-stream { width: 100%; height: 100%; }
+        .controls { margin-top: 1em; }
+        input { width: 400px; padding: 5px; }
+        button { padding: 5px 10px; }
+        #status { margin-top: 1em; font-style: italic; color: #555; }
+    </style>
+</head>
+<body>
+    <h1>IP摄像头实时流 (WebSocket)</h1>
+    <div class="controls">
+        <label for="rtsp-url">RTSP 地址:</label>
+        <input type="text" id="rtsp-url" value="rtsp://your_rtsp_stream_url_here">
+        <button onclick="startStream()">开始播放</button>
+        <button onclick="stopStream()">停止播放</button>
+    </div>
+    <div id="video-container">
+        <img id="video-stream" alt="视频流将在这里显示...">
+    </div>
+    <p id="status">状态: 未连接</p>
+
+    <script>
+        const rtspUrlInput = document.getElementById('rtsp-url');
+        const videoStream = document.getElementById('video-stream');
+        const statusElement = document.getElementById('status');
+        let websocket = null;
+
+        function startStream() {
+            if (websocket) {
+                console.log("已有连接，请先停止。");
+                return;
+            }
+
+            const rtspUrl = rtspUrlInput.value;
+            if (!rtspUrl) {
+                alert("请输入RTSP地址！");
+                return;
+            }
+
+            // 对RTSP地址进行URL编码
+            const encodedRtspUrl = encodeURIComponent(rtspUrl);
+            const wsUrl = `ws://localhost:8000/ws/stream?rtsp_url=${encodedRtspUrl}`;
+            
+            statusElement.textContent = "状态: 正在连接...";
+            console.log(`正在连接到: ${wsUrl}`);
+            
+            websocket = new WebSocket(wsUrl);
+            // 接收二进制数据时，我们希望得到一个Blob对象
+            websocket.binaryType = "blob";
+
+            websocket.onopen = () => {
+                statusElement.textContent = "状态: 连接成功，等待视频流...";
+                console.log("WebSocket连接已打开。");
+            };
+
+            websocket.onmessage = (event) => {
+                // 判断接收到的是二进制数据还是文本数据
+                if (event.data instanceof Blob) {
+                    // 将Blob对象转换为一个临时的URL，并设置为img的src
+                    const url = URL.createObjectURL(event.data);
+                    videoStream.src = url;
+                    statusElement.textContent = "状态: 正在播放...";
+
+                    // 优化：当图片加载完成后，释放旧的URL对象以避免内存泄漏
+                    videoStream.onload = () => {
+                        URL.revokeObjectURL(url);
+                    }
+                } else if (typeof event.data === 'string') {
+                    // 处理后端发来的错误信息
+                    const data = JSON.parse(event.data);
+                    if (data.error) {
+                        alert(`后端错误: ${data.error}`);
+                        statusElement.textContent = `状态: 错误 - ${data.error}`;
+                        stopStream();
+                    }
+                }
+            };
+
+            websocket.onclose = () => {
+                statusElement.textContent = "状态: 连接已关闭。";
+                console.log("WebSocket连接已关闭。");
+                websocket = null;
+                videoStream.src = ""; // 清空图像
+            };
+
+            websocket.onerror = (error) => {
+                statusElement.textContent = "状态: 连接发生错误。";
+                console.error("WebSocket错误: ", error);
+                websocket = null;
+            };
+        }
+
+        function stopStream() {
+            if (websocket) {
+                websocket.close();
+            }
+        }
+    </script>
+</body>
+</html>
