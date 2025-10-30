@@ -1,0 +1,8 @@
+opencv-python
+opencv-contrib-python
+tensorflow
+tflearn
+numpy
+scikit-learn
+tqdm
+h5py

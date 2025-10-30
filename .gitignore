@@ -1,0 +1,24 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+dist/
+build/
+
+# AI Training Data (太大不要提交)
+ai_services/sign-language-gesture-recognition/train_frames/
+ai_services/sign-language-gesture-recognition/test_frames/
+ai_services/sign-language-gesture-recognition/train_videos/
+ai_services/sign-language-gesture-recognition/test_videos/
+
+# AI Model Files (模型文件也很大)
+ai_services/sign-language-gesture-recognition/*.h5
+ai_services/sign-language-gesture-recognition/*.pkl
+
+# 其他临时文件
+ai_services/sign-language-gesture-recognition/results.txt
