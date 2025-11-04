@@ -1,0 +1,20 @@
+# Python virtual environment
+venv/
+
+# Dataset (large) - do not commit
+sign_language_dataset/
+
+# TensorFlow/Keras model files
+*.h5
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# VSCode
+.vscode/
+
+# macOS
+.DS_Store
+

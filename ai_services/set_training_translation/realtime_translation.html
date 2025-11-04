@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>实时手语翻译系统</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 2.5em;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 40px;
+        font-size: 1.1em;
+      }
+
+      .main-grid {
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+
+      .video-section {
+        position: relative;
+      }
+
+      .video-container {
+        position: relative;
+        background: #000;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      video,
+      #annotatedCanvas {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      #annotatedCanvas {
+        position: absolute;
+        top: 0;
+        left: 0;
+      }
+
+      .overlay {
+        position: absolute;
+        bottom: 20px;
+        left: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 20px;
+        border-radius: 10px;
+        color: white;
+      }
+
+      .detected-word {
+        font-size: 3em;
+        font-weight: bold;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        color: #4caf50;
+        text-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+      }
+
+      .confidence {
+        font-size: 1.2em;
+        color: #fff;
+      }
+
+      .confidence-bar {
+        width: 100%;
+        height: 10px;
+        background: #333;
+        border-radius: 5px;
+        margin-top: 10px;
+        overflow: hidden;
+      }
+
+      .confidence-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #4caf50, #8bc34a);
+        transition: width 0.3s;
+      }
+
+      .side-panel {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+
+      .panel-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 15px;
+      }
+
+      .panel-section h3 {
+        margin-bottom: 15px;
+        color: #333;
+        border-bottom: 2px solid #667eea;
+        padding-bottom: 10px;
+      }
+
+      .translation-history {
+        max-height: 300px;
+        overflow-y: auto;
+      }
+
+      .history-item {
+        padding: 10px;
+        margin-bottom: 10px;
+        background: white;
+        border-radius: 8px;
+        border-left: 4px solid #667eea;
+      }
+
+      .history-word {
+        font-weight: bold;
+        font-size: 1.2em;
+        color: #333;
+      }
+
+      .history-time {
+        font-size: 0.9em;
+        color: #666;
+        margin-top: 5px;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+      }
+
+      .stat-card {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        text-align: center;
+      }
+
+      .stat-value {
+        font-size: 2em;
+        font-weight: bold;
+        color: #667eea;
+      }
+
+      .stat-label {
+        color: #666;
+        margin-top: 5px;
+        font-size: 0.9em;
+      }
+
+      .controls {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 30px;
+      }
+
+      button {
+        padding: 15px 30px;
+        font-size: 16px;
+        font-weight: 600;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+      }
+
+      .btn-success {
+        background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+        color: white;
+      }
+
+      .btn-danger {
+        background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+        color: white;
+      }
+
+      .btn-warning {
+        background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+        color: white;
+      }
+
+      .status {
+        text-align: center;
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+
+      .status.info {
+        background: #e3f2fd;
+        color: #1976d2;
+      }
+
+      .status.success {
+        background: #e8f5e9;
+        color: #388e3c;
+      }
+
+      .status.error {
+        background: #ffebee;
+        color: #c62828;
+      }
+
+      .fps-counter {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.7);
+        color: white;
+        padding: 5px 10px;
+        border-radius: 5px;
+        font-size: 14px;
+      }
+
+      @media (max-width: 1024px) {
+        .main-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 10px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: #667eea;
+        border-radius: 10px;
+      }
+
+      .sentence-builder {
+        background: white;
+        padding: 15px;
+        border-radius: 10px;
+        min-height: 60px;
+        font-size: 1.3em;
+        border: 2px solid #ddd;
+        word-wrap: break-word;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>🤟 实时手语翻译系统</h1>
+      <p class="subtitle">基于深度学习的手语识别 - 双手支持 | 实时翻译</p>
+
+      <div class="main-grid">
+        <div class="video-section">
+          <div class="video-container">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="annotatedCanvas"></canvas>
+            <div class="fps-counter" id="fps">FPS: 0</div>
+            <div class="overlay" id="overlay" style="display: none">
+              <div class="detected-word" id="detectedWord">-</div>
+              <div class="confidence">
+                置信度: <span id="confidence">0</span>%
+              </div>
+              <div class="confidence-bar">
+                <div
+                  class="confidence-fill"
+                  id="confidenceFill"
+                  style="width: 0%"
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="side-panel">
+          <div class="panel-section">
+            <h3>📊 统计信息</h3>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value" id="totalDetections">0</div>
+                <div class="stat-label">识别次数</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value" id="avgConfidence">0%</div>
+                <div class="stat-label">平均置信度</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <h3>💬 句子构建</h3>
+            <div class="sentence-builder" id="sentenceBuilder">等待识别...</div>
+            <button
+              class="btn-warning"
+              onclick="clearSentence()"
+              style="width: 100%; margin-top: 10px"
+            >
+              清空句子
+            </button>
+          </div>
+
+          <div class="panel-section">
+            <h3>📜 翻译历史</h3>
+            <div class="translation-history" id="translationHistory">
+              <p style="color: #999; text-align: center">暂无记录</p>
+            </div>
+            <button
+              class="btn-warning"
+              onclick="clearHistory()"
+              style="width: 100%; margin-top: 10px"
+            >
+              清空历史
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="startCamera" class="btn-primary">启动摄像头</button>
+        <button id="startTranslation" class="btn-success" disabled>
+          开始翻译
+        </button>
+        <button id="stopTranslation" class="btn-danger" style="display: none">
+          停止翻译
+        </button>
+      </div>
+
+      <div id="status" class="status info">等待初始化...</div>
+    </div>
+
+    <script>
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("annotatedCanvas");
+      const ctx = canvas.getContext("2d");
+      const overlay = document.getElementById("overlay");
+      const detectedWord = document.getElementById("detectedWord");
+      const confidence = document.getElementById("confidence");
+      const confidenceFill = document.getElementById("confidenceFill");
+      const status = document.getElementById("status");
+      const fpsCounter = document.getElementById("fps");
+      const historyContainer = document.getElementById("translationHistory");
+      const sentenceBuilder = document.getElementById("sentenceBuilder");
+
+      let stream = null;
+      let translationInterval = null;
+      let isTranslating = false;
+      let history = [];
+      let sentence = [];
+      let totalDetections = 0;
+      let totalConfidence = 0;
+      let lastWord = "";
+      let lastWordTime = 0;
+      let frameCount = 0;
+      let lastFpsTime = Date.now();
+
+      // 初始化
+      async function init() {
+        updateStatus("正在加载模型...", "info");
+
+        // 注意：这里使用本地处理，不需要服务器
+        updateStatus("系统就绪，请启动摄像头", "success");
+      }
+
+      // 启动摄像头
+      document
+        .getElementById("startCamera")
+        .addEventListener("click", async () => {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              },
+            });
+            video.srcObject = stream;
+
+            video.addEventListener("loadedmetadata", () => {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+            });
+
+            document.getElementById("startTranslation").disabled = false;
+            updateStatus("摄像头已启动，可以开始翻译", "success");
+          } catch (error) {
+            updateStatus("无法访问摄像头: " + error.message, "error");
+          }
+        });
+
+      // 开始翻译
+      document
+        .getElementById("startTranslation")
+        .addEventListener("click", () => {
+          isTranslating = true;
+          overlay.style.display = "block";
+          document.getElementById("startTranslation").style.display = "none";
+          document.getElementById("stopTranslation").style.display =
+            "inline-block";
+
+          updateStatus("正在实时翻译...", "success");
+          startTranslation();
+        });
+
+      // 停止翻译
+      document
+        .getElementById("stopTranslation")
+        .addEventListener("click", () => {
+          stopTranslation();
+        });
+
+      function startTranslation() {
+        translationInterval = setInterval(async () => {
+          if (!isTranslating) return;
+
+          // 捕获当前帧
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = canvas.toDataURL("image/jpeg", 0.8);
+
+          // 发送到服务器进行预测
+          try {
+            const response = await fetch("http://localhost:5000/api/predict", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ image: imageData }),
+            });
+
+            const result = await response.json();
+
+            if (result.success && result.detected) {
+              displayResult(result);
+              updateFPS();
+            } else {
+              detectedWord.textContent = "未检测到手势";
+              confidence.textContent = "0";
+              confidenceFill.style.width = "0%";
+            }
+          } catch (error) {
+            console.error("翻译错误:", error);
+            updateStatus("连接服务器失败，请确保后端服务正在运行", "error");
+            stopTranslation();
+          }
+        }, 200); // 每200ms处理一帧
+      }
+
+      function stopTranslation() {
+        if (translationInterval) {
+          clearInterval(translationInterval);
+          translationInterval = null;
+        }
+        isTranslating = false;
+        overlay.style.display = "none";
+        document.getElementById("startTranslation").style.display =
+          "inline-block";
+        document.getElementById("stopTranslation").style.display = "none";
+        updateStatus("翻译已停止", "info");
+      }
+
+      function displayResult(result) {
+        const word = result.word;
+        const conf = (result.confidence * 100).toFixed(1);
+
+        detectedWord.textContent = word;
+        confidence.textContent = conf;
+        confidenceFill.style.width = conf + "%";
+
+        // 更新统计
+        totalDetections++;
+        totalConfidence += result.confidence;
+        document.getElementById("totalDetections").textContent =
+          totalDetections;
+        document.getElementById("avgConfidence").textContent =
+          ((totalConfidence / totalDetections) * 100).toFixed(1) + "%";
+
+        // 添加到句子（去重，2秒内相同单词不重复添加）
+        const now = Date.now();
+        if (word !== lastWord || now - lastWordTime > 2000) {
+          if (result.confidence > 0.6) {
+            // 置信度阈值
+            sentence.push(word);
+            sentenceBuilder.textContent = sentence.join(" ");
+            addToHistory(word, conf);
+            lastWord = word;
+            lastWordTime = now;
+          }
+        }
+      }
+
+      function addToHistory(word, conf) {
+        const historyItem = {
+          word: word,
+          confidence: conf,
+          time: new Date().toLocaleTimeString(),
+        };
+
+        history.unshift(historyItem);
+        if (history.length > 20) history.pop();
+
+        renderHistory();
+      }
+
+      function renderHistory() {
+        if (history.length === 0) {
+          historyContainer.innerHTML =
+            '<p style="color: #999; text-align: center;">暂无记录</p>';
+          return;
+        }
+
+        historyContainer.innerHTML = history
+          .map(
+            (item) => `
+                <div class="history-item">
+                    <div class="history-word">${item.word}</div>
+                    <div class="history-time">${item.time} - 置信度: ${item.confidence}%</div>
+                </div>
+            `
+          )
+          .join("");
+      }
+
+      function clearHistory() {
+        history = [];
+        renderHistory();
+      }
+
+      function clearSentence() {
+        sentence = [];
+        sentenceBuilder.textContent = "等待识别...";
+      }
+
+      function updateFPS() {
+        frameCount++;
+        const now = Date.now();
+        if (now - lastFpsTime >= 1000) {
+          fpsCounter.textContent = `FPS: ${frameCount}`;
+          frameCount = 0;
+          lastFpsTime = now;
+        }
+      }
+
+      function updateStatus(message, type) {
+        status.textContent = message;
+        status.className = `status ${type}`;
+      }
+
+      // 页面加载时初始化
+      init();
+    </script>
+  </body>
+</html>

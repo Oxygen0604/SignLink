@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>手语数据采集系统</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 20px;
+        padding: 40px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      h1 {
+        text-align: center;
+        color: #333;
+        margin-bottom: 10px;
+        font-size: 2.5em;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: #666;
+        margin-bottom: 40px;
+        font-size: 1.1em;
+      }
+
+      .input-section {
+        background: #f8f9fa;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+      }
+
+      .form-group {
+        margin-bottom: 20px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 600;
+        color: #333;
+        font-size: 1.1em;
+      }
+
+      input[type="text"],
+      input[type="number"] {
+        width: 100%;
+        padding: 12px 15px;
+        font-size: 16px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        transition: border-color 0.3s;
+      }
+
+      input[type="text"]:focus,
+      input[type="number"]:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .camera-section {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 30px;
+        margin-bottom: 30px;
+      }
+
+      .video-container {
+        position: relative;
+        background: #000;
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      }
+
+      video {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      canvas {
+        display: none;
+      }
+
+      .preview-container {
+        background: #f8f9fa;
+        border-radius: 15px;
+        padding: 20px;
+        min-height: 400px;
+      }
+
+      .preview-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .preview-item {
+        position: relative;
+        aspect-ratio: 1;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 2px solid #ddd;
+      }
+
+      .preview-item img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .preview-item .delete-btn {
+        position: absolute;
+        top: 5px;
+        right: 5px;
+        background: rgba(255, 0, 0, 0.8);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .controls {
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 30px;
+      }
+
+      button {
+        padding: 15px 30px;
+        font-size: 16px;
+        font-weight: 600;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+      }
+
+      .btn-success {
+        background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+        color: white;
+      }
+
+      .btn-success:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+      }
+
+      .btn-danger {
+        background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+        color: white;
+      }
+
+      .btn-danger:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(244, 67, 54, 0.3);
+      }
+
+      .btn-warning {
+        background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+        color: white;
+      }
+
+      .status {
+        text-align: center;
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+
+      .status.info {
+        background: #e3f2fd;
+        color: #1976d2;
+      }
+
+      .status.success {
+        background: #e8f5e9;
+        color: #388e3c;
+      }
+
+      .status.warning {
+        background: #fff3e0;
+        color: #f57c00;
+      }
+
+      .countdown {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        font-size: 100px;
+        color: white;
+        font-weight: bold;
+        text-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        z-index: 10;
+      }
+
+      .stats {
+        display: flex;
+        justify-content: space-around;
+        margin-top: 20px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 10px;
+      }
+
+      .stat-item {
+        text-align: center;
+      }
+
+      .stat-value {
+        font-size: 2em;
+        font-weight: bold;
+        color: #667eea;
+      }
+
+      .stat-label {
+        color: #666;
+        margin-top: 5px;
+      }
+
+      @media (max-width: 768px) {
+        .camera-section {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>📸 手语数据采集系统</h1>
+      <p class="subtitle">用于收集手语训练数据 - 支持双手识别</p>
+
+      <div class="input-section">
+        <div class="form-group">
+          <label for="wordInput">输入英文单词/短语：</label>
+          <input
+            type="text"
+            id="wordInput"
+            placeholder="例如: hello, thank you, goodbye"
+          />
+        </div>
+        <div class="form-group">
+          <label for="photoCount">连拍数量：</label>
+          <input type="number" id="photoCount" value="10" min="1" max="50" />
+        </div>
+        <div class="form-group">
+          <label for="intervalTime">拍摄间隔（秒）：</label>
+          <input
+            type="number"
+            id="intervalTime"
+            value="1"
+            min="0.5"
+            max="5"
+            step="0.5"
+          />
+        </div>
+      </div>
+
+      <div class="camera-section">
+        <div class="video-container">
+          <video id="video" autoplay playsinline></video>
+          <div id="countdown" class="countdown" style="display: none"></div>
+          <canvas id="canvas"></canvas>
+        </div>
+        <div class="preview-container">
+          <h3>已拍摄照片预览</h3>
+          <div id="previewGrid" class="preview-grid"></div>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat-item">
+          <div class="stat-value" id="currentCount">0</div>
+          <div class="stat-label">当前已拍摄</div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-value" id="totalCount">0</div>
+          <div class="stat-label">总计照片</div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="startCamera" class="btn-primary">启动摄像头</button>
+        <button id="startCapture" class="btn-success" disabled>开始连拍</button>
+        <button id="stopCapture" class="btn-warning" style="display: none">
+          停止拍摄
+        </button>
+        <button id="clearPhotos" class="btn-danger">清空照片</button>
+        <button id="downloadDataset" class="btn-primary">下载数据集</button>
+      </div>
+
+      <div id="status" class="status info">等待启动摄像头...</div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script>
+      const video = document.getElementById("video");
+      const canvas = document.getElementById("canvas");
+      const ctx = canvas.getContext("2d");
+      const previewGrid = document.getElementById("previewGrid");
+      const wordInput = document.getElementById("wordInput");
+      const photoCount = document.getElementById("photoCount");
+      const intervalTime = document.getElementById("intervalTime");
+      const status = document.getElementById("status");
+      const currentCountEl = document.getElementById("currentCount");
+      const totalCountEl = document.getElementById("totalCount");
+      const countdownEl = document.getElementById("countdown");
+
+      let stream = null;
+      let captureInterval = null;
+      let capturedPhotos = [];
+      let currentCaptureCount = 0;
+      let isCapturing = false;
+
+      // 启动摄像头
+      document
+        .getElementById("startCamera")
+        .addEventListener("click", async () => {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                width: { ideal: 1280 },
+                height: { ideal: 720 },
+              },
+            });
+            video.srcObject = stream;
+
+            document.getElementById("startCapture").disabled = false;
+            updateStatus("摄像头已启动，请输入单词并开始拍摄", "success");
+          } catch (error) {
+            updateStatus("无法访问摄像头: " + error.message, "warning");
+          }
+        });
+
+      // 开始连拍
+      document.getElementById("startCapture").addEventListener("click", () => {
+        const word = wordInput.value.trim();
+        if (!word) {
+          alert("请输入单词或短语！");
+          return;
+        }
+
+        const count = parseInt(photoCount.value);
+        const interval = parseFloat(intervalTime.value) * 1000;
+
+        currentCaptureCount = 0;
+        isCapturing = true;
+        document.getElementById("startCapture").style.display = "none";
+        document.getElementById("stopCapture").style.display = "inline-block";
+
+        updateStatus(`开始为 "${word}" 连拍 ${count} 张照片...`, "info");
+
+        let countdownValue = 3;
+        countdownEl.style.display = "block";
+        countdownEl.textContent = countdownValue;
+
+        const countdownInterval = setInterval(() => {
+          countdownValue--;
+          if (countdownValue > 0) {
+            countdownEl.textContent = countdownValue;
+          } else {
+            countdownEl.textContent = "开始!";
+            clearInterval(countdownInterval);
+            setTimeout(() => {
+              countdownEl.style.display = "none";
+              startCapturing(word, count, interval);
+            }, 500);
+          }
+        }, 1000);
+      });
+
+      // 停止拍摄
+      document.getElementById("stopCapture").addEventListener("click", () => {
+        stopCapturing();
+      });
+
+      function startCapturing(word, count, interval) {
+        captureInterval = setInterval(() => {
+          if (currentCaptureCount >= count || !isCapturing) {
+            stopCapturing();
+            return;
+          }
+
+          capturePhoto(word);
+          currentCaptureCount++;
+          currentCountEl.textContent = currentCaptureCount;
+
+          updateStatus(`正在拍摄... (${currentCaptureCount}/${count})`, "info");
+        }, interval);
+      }
+
+      function stopCapturing() {
+        if (captureInterval) {
+          clearInterval(captureInterval);
+          captureInterval = null;
+        }
+        isCapturing = false;
+        document.getElementById("startCapture").style.display = "inline-block";
+        document.getElementById("stopCapture").style.display = "none";
+        updateStatus(`拍摄完成！共 ${currentCaptureCount} 张照片`, "success");
+      }
+
+      function capturePhoto(word) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.drawImage(video, 0, 0);
+
+        canvas.toBlob(
+          (blob) => {
+            const timestamp = Date.now();
+            const filename = `${word}_${timestamp}.jpg`;
+
+            capturedPhotos.push({
+              word: word,
+              filename: filename,
+              blob: blob,
+              url: URL.createObjectURL(blob),
+            });
+
+            addPreview(capturedPhotos.length - 1);
+            updateTotalCount();
+          },
+          "image/jpeg",
+          0.9
+        );
+      }
+
+      function addPreview(index) {
+        const photo = capturedPhotos[index];
+        const div = document.createElement("div");
+        div.className = "preview-item";
+        div.innerHTML = `
+                <img src="${photo.url}" alt="${photo.word}">
+                <button class="delete-btn" onclick="deletePhoto(${index})">×</button>
+            `;
+        previewGrid.appendChild(div);
+      }
+
+      window.deletePhoto = function (index) {
+        URL.revokeObjectURL(capturedPhotos[index].url);
+        capturedPhotos.splice(index, 1);
+        refreshPreviews();
+        updateTotalCount();
+      };
+
+      function refreshPreviews() {
+        previewGrid.innerHTML = "";
+        capturedPhotos.forEach((photo, index) => {
+          addPreview(index);
+        });
+      }
+
+      function updateTotalCount() {
+        totalCountEl.textContent = capturedPhotos.length;
+      }
+
+      // 清空照片
+      document.getElementById("clearPhotos").addEventListener("click", () => {
+        if (confirm("确定要清空所有照片吗？")) {
+          capturedPhotos.forEach((photo) => URL.revokeObjectURL(photo.url));
+          capturedPhotos = [];
+          previewGrid.innerHTML = "";
+          currentCountEl.textContent = 0;
+          updateTotalCount();
+          updateStatus("照片已清空", "info");
+        }
+      });
+
+      // 下载数据集
+      document
+        .getElementById("downloadDataset")
+        .addEventListener("click", async () => {
+          if (capturedPhotos.length === 0) {
+            alert("没有照片可下载！");
+            return;
+          }
+
+          updateStatus("正在打包数据集...", "info");
+
+          const zip = new JSZip();
+          const groupedPhotos = {};
+
+          // 按单词分组
+          capturedPhotos.forEach((photo) => {
+            if (!groupedPhotos[photo.word]) {
+              groupedPhotos[photo.word] = [];
+            }
+            groupedPhotos[photo.word].push(photo);
+          });
+
+          // 添加到ZIP
+          for (const [word, photos] of Object.entries(groupedPhotos)) {
+            const folder = zip.folder(word);
+            photos.forEach((photo, index) => {
+              folder.file(photo.filename, photo.blob);
+            });
+          }
+
+          // 生成并下载
+          const content = await zip.generateAsync({ type: "blob" });
+          const url = URL.createObjectURL(content);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `sign_language_dataset_${Date.now()}.zip`;
+          a.click();
+          URL.revokeObjectURL(url);
+
+          updateStatus("数据集下载完成！", "success");
+        });
+
+      function updateStatus(message, type) {
+        status.textContent = message;
+        status.className = `status ${type}`;
+      }
+    </script>
+  </body>
+</html>
