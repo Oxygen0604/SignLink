@@ -2,14 +2,13 @@
 
 ## 概述
 
-SignLink后端是基于FastAPI构建的手语识别翻译服务，提供RESTful API接口，支持实时手语识别、文件上传识别等功能。
+SignLink后端是基于FastAPI构建的手语识别翻译服务，**完全兼容ai_services的Flask服务**。提供简单的RESTful API接口，支持实时手语识别，单帧图像处理。
 
 ## 功能特性
 
-- ✅ **实时手语识别** - 接收Base64图像，实时返回识别结果
-- ✅ **文件上传识别** - 支持图片和视频文件上传识别
+- ✅ **实时手语识别** - 接收Base64图像，单帧识别返回结果
 - ✅ **可视化结果** - 返回带有手部关键点标注的可视化图像
-- ✅ **健康检查** - 提供服务健康状态和模型信息查询
+- ✅ **ai_services兼容** - 与ai_services的Flask服务100%兼容
 - ✅ **CORS支持** - 完整支持跨域请求
 - ✅ **错误处理** - 完善的异常处理和错误响应
 - ✅ **日志记录** - 完整的运行日志和调试信息
@@ -20,7 +19,7 @@ SignLink后端是基于FastAPI构建的手语识别翻译服务，提供RESTful 
 - **机器学习**: TensorFlow 2.15.0
 - **计算机视觉**: OpenCV 4.8.1, MediaPipe 0.10.7
 - **数据处理**: NumPy, Pillow
-- **API文档**: 自动生成Swagger UI
+- **兼容性**: 与ai_services的Flask服务完全兼容
 
 ## 项目结构
 
@@ -30,10 +29,11 @@ backend/
 │   ├── main.py                    # FastAPI主应用
 │   ├── api/
 │   │   └── routes/
-│   │       └── recognition.py     # 手语识别API路由
+│   │       ├── flask_compat.py    # 与ai_services兼容的API路由
+│   │       └── recognition.py     # 原始API路由（已注释）
 │   ├── core/
 │   │   ├── config.py              # 配置管理
-│   │   └── recognizer.py          # 核心识别器
+│   │   └── recognizer.py          # 核心识别器（从ai_services移植）
 │   ├── models/
 │   │   └── schemas.py             # Pydantic数据模型
 │   ├── services/
@@ -42,6 +42,8 @@ backend/
 │       └── image_processing.py    # 图像处理工具
 ├── requirements.txt               # Python依赖
 ├── start.sh                      # 启动脚本
+├── test_flask_compat.py          # 兼容性测试脚本
+├── ai_services兼容性说明.md       # 兼容性说明文档
 └── README.md                     # 本文档
 ```
 
@@ -99,68 +101,54 @@ python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 访问以下地址：
 - **服务地址**: http://localhost:8000
 - **API文档**: http://localhost:8000/docs
-- **健康检查**: http://localhost:8000/api/health
 
-## API接口
+## API接口（与ai_services完全一致）
 
-### 1. 健康检查
+### 1. 初始化模型
 
 ```http
-GET /api/health
+POST /api/init
 ```
 
-返回服务健康状态和模型加载情况。
-
-### 2. 获取模型信息
-
-```http
-GET /api/model/info
-```
-
-返回AI模型的详细信息（类别数量、支持的手语等）。
-
-### 3. 实时手语识别
-
-```http
-POST /api/recognize/realtime
-Content-Type: application/json
-
+**响应示例**：
+```json
 {
-  "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ...",  # Base64图像数据
-  "format": "jpeg",
-  "quality": 80
+  "success": true,
+  "message": "模型加载成功",
+  "num_classes": 5,
+  "classes": ["hello", "thank", "goodbye", "yes", "no"]
 }
 ```
 
-### 4. 文件上传识别
+### 2. 预测单帧图像
 
 ```http
-POST /api/recognize/upload
-Content-Type: multipart/form-data
-
-file: <图片或视频文件>
-```
-
-### 5. 可视化识别
-
-```http
-POST /api/recognize/visualize
+POST /api/predict
 Content-Type: application/json
 
 {
-  "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ..."
+  "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQ..."  # Base64图像数据
 }
 ```
 
-返回识别结果和带有手部关键点标注的图像。
-
-### 6. 获取支持的手语类别
-
-```http
-GET /api/classes
+**响应示例**：
+```json
+{
+  "success": true,
+  "detected": true,
+  "word": "hello",
+  "confidence": 0.95,
+  "annotated_image": "data:image/jpeg;base64,..."
+}
 ```
 
-返回模型支持的所有手语类别列表。
+## 工作原理
+
+1. **前端循环**: 前端每100ms截取一帧视频，转换为Base64格式
+2. **发送请求**: 发送HTTP POST请求到 `/api/predict`
+3. **单帧识别**: 后端对单帧图像进行识别
+4. **返回结果**: 返回识别单词和可视化图像
+5. **本地组合**: 前端本地维护历史记录，组合成句子
 
 ## 响应格式
 
@@ -170,18 +158,9 @@ GET /api/classes
 {
   "success": true,
   "detected": true,
-  "predicted_class": "hello",
+  "word": "hello",
   "confidence": 0.95,
-  "message": "识别成功",
-  "hands_count": 1,
-  "hands": [
-    {
-      "landmarks": [...],
-      "handedness": "Right"
-    }
-  ],
-  "processing_time_ms": 45.2,
-  "timestamp": "2024-01-01T00:00:00.000000"
+  "annotated_image": "data:image/jpeg;base64,..."
 }
 ```
 
@@ -190,45 +169,37 @@ GET /api/classes
 ```json
 {
   "success": false,
-  "error_code": "HTTP_400",
-  "error_message": "图像格式错误: ..."
+  "message": "预测失败: ..."
 }
 ```
 
 ## 前端集成示例
 
-### 发送Base64图像
+### 与ai_services前端集成
 
 ```javascript
-async function recognizeHandSign(imageFile) {
-  // 转换为Base64
-  const base64 = await fileToBase64(imageFile);
+// 与ai_services的realtime_translation.html完全一致
+setInterval(async () => {
+  if (!isTranslating) return;
 
-  // 发送请求
-  const response = await fetch('/api/recognize/realtime', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      image: base64,
-      format: 'jpeg',
-      quality: 80
-    })
+  // 1. 截取当前帧
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+  const imageData = canvas.toDataURL("image/jpeg", 0.8);
+
+  // 2. 发送到后端
+  const response = await fetch("http://localhost:8000/api/predict", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ image: imageData }),
   });
 
+  // 3. 显示结果
   const result = await response.json();
-  return result;
-}
-
-function fileToBase64(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = error => reject(error);
-  });
-}
+  if (result.success && result.detected) {
+    console.log("识别结果:", result.word, result.confidence);
+    displayResult(result);
+  }
+}, 100); // 100ms间隔（10 FPS）
 ```
 
 ## 配置
