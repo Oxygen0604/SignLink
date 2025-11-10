@@ -23,41 +23,43 @@ SignLink 提供了**即时翻译能力**：
 ---
 ## 核心功能实现方案
 
-### 视频流处理
+### 本地手语识别流程
 
-- **硬件** 推送rtsp视频流到服务端
-- **后端** 运行rtsp服务器接收摄像头流，使用CoralReefPlayer拉取并解码rtsp流，将视频流转码为浏览器支持的格式
-- **前端** 播放实时视频流
+- **前端** 使用React Native摄像头API直接调用手机摄像头，实时采集视频流
+- **数据传输** 将视频帧或视频流传给后端API
+- **后端** 使用MediaPipe进行手部关键点检测，调用本地训练好的手语识别模型
+- **AI处理** 将手语序列转换为自然语言文本
+- **结果返回** 将翻译结果返回给前端显示
 
-### 手语->自然语言的转化
+### 视频/图片上传识别
 
-- **后端** openCV从rtsp源拉取实并预处理实时视频流，用mediaPipe进行手部关键点检测
-- **AI** 将手语序列转为自然语言（
-可参考harshbg/Sign-Language-Interpreter-using-Deep-Learning
-sign-language-translator
-MediaPipe Sign Language Detection
-WLASL 数据集）
+- **前端** 支持从相册选择或直接拍摄视频/图片
+- **后端** 接收上传的文件，使用OpenCV和MediaPipe进行预处理和手部关键点检测
+- **模型推理** 调用本地手语识别模型进行翻译
+- **结果展示** 将识别结果返回前端进行可视化展示
 
-### 语音听写
+### 语音听写（待实现）
 
-- **前端** 利用js-audio-recorder的方式实现语音文本听写，多语言支持
-- **AI** 提供识别语言类型功能
-- **硬件** 推送音频到服务端
+- **前端** 利用设备麦克风采集音频
+- **AI处理** 语音识别转文字（计划集成百度/腾讯/阿里云等语音识别API）
+- **结果展示** 实时显示转录文本
 
-### 盲文->自然语言
-待完善...
+### 盲文转换（待实现）
+- **文本处理** 将识别的文字转换为盲文坐标序列
+- **硬件反馈** 支持在虚拟环境和硬件设备中反馈盲文信息
 
 
 ---
 
 ## 技术栈
 
-| 层级       | 技术方案                           |  
-|------------|----------------------------------|  
-| 前端       | Rspack, lynx, TypeScript          |  
-| 后端       | Python, Flask / FastAPI           |  
-| 图像识别   | MediaPipe，openCV                  |  
-| NLP       |   LSTM, spaCy / NLTK              |  
+| 层级       | 技术方案                           |
+|------------|----------------------------------|
+| 前端       | React Native 0.81, TypeScript     |
+| 后端       | Python, FastAPI                   |
+| 图像识别   | MediaPipe, OpenCV                 |
+| 机器学习   | TensorFlow/Keras, LSTM            |
+| 实时通信   | HTTP API, WebSocket (预留)         |
 | 渲染引擎   | Three.js（3D 手势动画）              |  
 ---
 
@@ -84,14 +86,44 @@ SignLink/
 
 ## 快速开始
 
+### 环境要求
+- Python 3.8+
+- Node.js 20+
+- Android Studio / Xcode (移动端开发)
+
 ### 后端运行
-cd backend/  
-pip install -r requirements.txt  
-python app.py  
+```bash
+# 安装Python依赖
+cd backend/
+pip install -r requirements.txt
+
+# 启动后端服务
+cd app/
+uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
 ### 前端运行（React Native）
-cd frontend/  
-npm install  
-npx react-native run-android   # 或 npx react-native run-ios  
+```bash
+# 安装依赖
+cd frontend/
+npm install
+
+# 启动项目
+npm start
+
+# 运行在Android设备
+npm run android
+
+# 运行在iOS设备
+npm run ios
+```
+
+### AI模型训练（如需重新训练）
+```bash
+cd ai_services/set_training_translation/
+# 按README.md中的步骤进行数据采集和模型训练
+python train_sign_language_model.py
+```  
 
 ---
 
@@ -100,12 +132,13 @@ npx react-native run-android   # 或 npx react-native run-ios
 - **手语、盲文学习交流** SignLink提供了准确的手语、盲文翻译功能，便于手语、盲文的学习
 
 ## 开发阶段
-1. 搭建用户页面，实现 RTSP 服务器视频流接收，硬件视频/音频流传输。
-2. 部署 CoralReefPlayer，实现音视频流解码与预处理，了解手语转化相关开源项目及思考处理方法。
-3. 实现手语转文字功能。
-4. 实现语音听写功能（前端显示、智能语种识别），搭建盲文板虚拟环境。
-5. 实现自然语言到盲文序列的转化，并在前端显示。
-6. 后续尝试盲文板实体化开发。
+1. ✅ 完善React Native前端界面，实现摄像头调用和视频流处理
+2. ✅ 完成手语识别模型训练和部署
+3. ✅ 实现后端API，处理视频流并返回识别结果
+4. 🔄 优化手语识别准确率，增加更多手势词汇
+5. 📋 实现语音听写功能（集成云端语音识别API）
+6. 📋 实现文字转盲文功能，支持盲文坐标序列输出
+7. 📋 尝试盲文板硬件接入（如有需要）
 
 
 ## 贡献者
