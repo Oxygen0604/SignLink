@@ -29,6 +29,7 @@ from .services.translator import TranslationService
 
 # 导入API路由
 from .api.routes import recognition
+from .api.routes.flask_compat import router as flask_compat_router, init_translator
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -41,28 +42,20 @@ async def lifespan(app: FastAPI):
     logger.info(f"🚀 启动 {config.APP_NAME} v{config.APP_VERSION}")
     logger.info("=" * 60)
 
-    # 初始化识别器
+    # 初始化识别器（使用ai_services的方式）
     try:
         logger.info("正在初始化手语识别器...")
-        recognizer = SignLanguageRecognizer(
-            model_path=config.get_model_path(),
-            labels_path=config.get_labels_path()
-        )
+        # 与ai_services保持一致：使用全局变量
+        from .api.routes.flask_compat import translator as global_translator
 
-        if not recognizer.is_ready():
+        if not init_translator():
             logger.error("❌ 识别器初始化失败！")
             logger.error("请检查模型文件和标签文件是否存在")
+            logger.error(f"模型路径: {config.get_model_path()}")
+            logger.error(f"标签路径: {config.get_labels_path()}")
             raise RuntimeError("识别器初始化失败")
 
         logger.info("✅ 识别器初始化成功！")
-
-        # 初始化翻译服务
-        translation_service = TranslationService(recognizer)
-        app.state.translation_service = translation_service
-
-        logger.info("✅ 翻译服务初始化成功！")
-        logger.info(f"   - 支持手语类别: {len(recognizer.labels)}")
-        logger.info(f"   - 类别列表: {recognizer.labels}")
 
     except Exception as e:
         logger.error(f"❌ 服务启动失败: {str(e)}")
@@ -147,7 +140,11 @@ async def root():
     }
 
 # 注册API路由
-app.include_router(recognition.router)
+# 注册与ai_services兼容的路由（优先级高，放在前面）
+app.include_router(flask_compat_router)
+
+# 注册新的API路由
+# app.include_router(recognition.router)
 
 # ========== 启动方式 ==========
 
