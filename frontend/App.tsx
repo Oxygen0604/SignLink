@@ -1,16 +1,15 @@
 
 
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import { StatusBar, useColorScheme } from 'react-native';
 import {
   SafeAreaProvider,
-  useSafeAreaInsets,
 } from 'react-native-safe-area-context';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from './src/screens/HomeScreen/HomeScreen';
-import SignHomeScreen from './src/screens/SignScreen/SignHomeScreen';
-import SignTransScreen from './src/screens/SignScreen/SignTransScreen';
-import SpeechToTextScreen from './src/screens/SignScreen/SpeechToTextScreen';
+import SignHomeScreen from './src/screens/SignTransScreen/SignHomeScreen.ios';
+import AIAssistantScreen from './src/screens/SignAIScreen/SignAIScreen.ios';
+import SignAnswerHomeScreen from './src/screens/SignAnswerScreen/SignAnswerHomeScreen.ios';
 
 const Stack = createNativeStackNavigator();
 
@@ -33,13 +32,13 @@ function App() {
             options={{ headerShown: false }}
           />
           <Stack.Screen
-            name="SignTrans"
-            component={SignTransScreen}
+            name="AIAssistant"
+            component={AIAssistantScreen}
             options={{ headerShown: false }}
           />
           <Stack.Screen
-            name="SpeechToText"
-            component={SpeechToTextScreen}
+            name="AnswerGame"
+            component={SignAnswerHomeScreen}
             options={{ headerShown: false }}
           />
         </Stack.Navigator>

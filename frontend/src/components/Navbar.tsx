@@ -1,7 +1,6 @@
 import React from "react";
 import { View, TouchableOpacity, Text, StyleSheet } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-import BackSvg from "../../assets/back.svg"; // 修正路径
 
 const Navbar = () => {
     const navigation = useNavigation();

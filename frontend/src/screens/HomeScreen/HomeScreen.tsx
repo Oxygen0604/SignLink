@@ -15,8 +15,11 @@ const HomeScreen = () => {
                 <TouchableOpacity style={styles.mainButton} onPress={() => {navigation.navigate('SignHome' as never)}}>
                     <Text style={styles.buttonText}>手语翻译</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.mainButton} onPress={() => {}}>
-                    <Text style={styles.buttonText}>盲文翻译</Text>
+                <TouchableOpacity style={styles.mainButton} onPress={() => {navigation.navigate('AnswerGame' as never)}}>
+                    <Text style={styles.buttonText}>答题闯关</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.mainButton} onPress={() => {navigation.navigate('AIAssistant' as never)}}>
+                    <Text style={styles.buttonText}>AI助手</Text>
                 </TouchableOpacity>
             </View>
             {/* footer */}
