@@ -16,8 +16,8 @@ SignLink后端是基于FastAPI构建的手语识别翻译服务，**完全兼容
 ## 技术栈
 
 - **Web框架**: FastAPI 0.104.1
-- **机器学习**: TensorFlow 2.15.0
-- **计算机视觉**: OpenCV 4.8.1, MediaPipe 0.10.7
+- **机器学习**: TensorFlow 2.17.1
+- **计算机视觉**: OpenCV, MediaPipe 0.10.21
 - **数据处理**: NumPy, Pillow
 - **兼容性**: 与ai_services的Flask服务完全兼容
 
@@ -30,7 +30,7 @@ backend/
 │   ├── api/
 │   │   └── routes/
 │   │       ├── flask_compat.py    # 与ai_services兼容的API路由
-│   │       └── recognition.py     # 原始API路由（已注释）
+│   │       └── recognition.py     # 原始API路由（目前以兼容路由为主）
 │   ├── core/
 │   │   ├── config.py              # 配置管理
 │   │   └── recognizer.py          # 核心识别器（从ai_services移植）
@@ -289,3 +289,76 @@ MIT License
 ## 支持
 
 如有问题，请联系后端开发团队或提交Issue。
+## WebSocket与双通道策略
+
+- 服务端点：`ws://localhost:8000/ws`
+- 前端策略：优先使用WebSocket；连接失败或发送异常则回退HTTP
+- WebSocket 消息
+  - 请求：`{ "type": "image", "data": "data:image/jpeg;base64,..." }`
+  - 响应：
+    - 兼容旧格式：`{ "signInput": "...", "signTranslation": "..." }`
+    - 新增结构：`{ "type": "recognition_result", "data": RecognitionResult }`
+
+## 前端对齐的HTTP端点
+
+- `POST /recognize/realtime`
+  - 请求体：`{ image: Base64, format?: 'jpeg'|'png', quality?: number }`
+  - 响应：`{ success, detected, word, confidence }`
+- `POST /recognize/batch`
+  - 请求体：`{ images: Base64[], format?: string, quality?: number }`
+  - 响应：`{ success, results: Array<{ success, detected, word, confidence }> }`
+- `GET /recognize/history`
+  - 响应：`{ success, history }`
+- 兼容路由保留：`POST /api/init`、`POST /api/predict`
+
+## .env 配置（后端）
+
+- 位置：`backend/.env`，自动加载于 `app/core/config.py`
+- 支持变量：
+  - `APP_NAME`、`APP_VERSION`、`DEBUG`
+  - `HOST`、`PORT`
+  - `LOG_LEVEL`、`LOG_FORMAT`
+  - `CORS_ORIGINS`（逗号分隔）
+  - `SIGNLANG_MODEL_PATH`、`SIGNLANG_LABELS_PATH`
+- 示例：
+```
+APP_NAME=SignLink 手语翻译后端
+APP_VERSION=1.0.0
+DEBUG=false
+HOST=0.0.0.0
+PORT=8000
+LOG_LEVEL=INFO
+LOG_FORMAT=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+CORS_ORIGINS=http://localhost:3000,http://localhost:19006,http://127.0.0.1:19006,http://127.0.0.1:3000
+SIGNLANG_MODEL_PATH=
+SIGNLANG_LABELS_PATH=
+```
+
+## 使用 Conda 环境
+
+- 创建或使用现有环境：`Signlink` 或 `signlink-backend`
+```
+conda create -n Signlink python=3.11
+conda activate Signlink
+pip install -r backend/requirements.txt # 如遇版本兼容，可按下列锁定
+pip install tensorflow==2.17.1 mediapipe fastapi==0.104.1 uvicorn==0.24.0 python-multipart python-dotenv
+```
+ - 启动服务：`python -m uvicorn backend.app.main:app --host 0.0.0.0 --port 8000`
+ - 文档：`http://localhost:8000/docs`
+
+## 验证示例
+
+### HTTP 单帧识别
+```
+curl -X POST http://localhost:8000/recognize/realtime \
+  -H "Content-Type: application/json" \
+  -d '{"image":"data:image/jpeg;base64,/9j/...","format":"jpeg","quality":80}'
+```
+
+### WebSocket 发送图像
+```
+# 伪代码
+ws = new WebSocket('ws://localhost:8000/ws')
+ws.onmessage = (e) => console.log(e.data)
+ws.onopen = () => ws.send(JSON.stringify({ type: 'image', data: 'data:image/jpeg;base64,/9j/...' }))
+```

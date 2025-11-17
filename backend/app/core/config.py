@@ -4,33 +4,42 @@
 """
 
 import os
-from typing import List
+from dotenv import load_dotenv
 from functools import lru_cache
+from typing import List
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+ENV_PATH = os.path.join(BASE_DIR, ".env")
+load_dotenv(ENV_PATH)
+ 
 
 class Config:
     """应用配置类"""
 
     # 服务配置
-    APP_NAME: str = "SignLink 手语翻译后端"
-    APP_VERSION: str = "1.0.0"
-    DEBUG: bool = False
+    APP_NAME: str = os.environ.get("APP_NAME", "SignLink 手语翻译后端")
+    APP_VERSION: str = os.environ.get("APP_VERSION", "1.0.0")
+    DEBUG: bool = os.environ.get("DEBUG", "False").lower() == "true"
 
     # 服务器配置
-    HOST: str = "0.0.0.0"
-    PORT: int = 8000
+    HOST: str = os.environ.get("HOST", "0.0.0.0")
+    PORT: int = int(os.environ.get("PORT", "8000"))
 
     # CORS配置
     CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",  # React开发服务器
-        "http://localhost:19006",  # React Native Metro
-        "http://127.0.0.1:19006",
-        "http://127.0.0.1:3000",
+        *(origin.strip() for origin in os.environ.get("CORS_ORIGINS", "").split(",") if origin.strip()),
+        *([] if os.environ.get("CORS_ORIGINS") else [
+            "http://localhost:3000",
+            "http://localhost:19006",
+            "http://127.0.0.1:19006",
+            "http://127.0.0.1:3000",
+        ])
     ]
 
     # AI模型配置
     # 模型文件路径 - 可以根据环境变量调整
     MODEL_PATH: str = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        BASE_DIR,
         "ai_services",
         "set_training_translation",
         "sign_language_model.h5"
@@ -38,7 +47,7 @@ class Config:
 
     # 标签文件路径
     LABELS_PATH: str = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+        BASE_DIR,
         "ai_services",
         "set_training_translation",
         "sign_language_labels.json"
@@ -53,8 +62,8 @@ class Config:
     API_RATE_LIMIT: int = 100  # 每分钟最大请求数
 
     # 日志配置
-    LOG_LEVEL: str = "INFO"
-    LOG_FORMAT: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    LOG_LEVEL: str = os.environ.get("LOG_LEVEL", "INFO")
+    LOG_FORMAT: str = os.environ.get("LOG_FORMAT", "%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
     @classmethod
     @lru_cache()
