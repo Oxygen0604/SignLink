@@ -216,6 +216,7 @@ ios/Pods/
 # Claude Code / AI工具生成的文件
 .spec-workflow/
 .serena/
+.trae
 *.memory
 *.spec
 *.steering

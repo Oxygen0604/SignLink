@@ -10,22 +10,24 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from contextlib import asynccontextmanager
 
-# 配置日志格式
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("backend.log", encoding="utf-8")
-    ]
-)
+# 导入日志配置
+from .utils.logger_config import setup_logging
 
-logger = logging.getLogger(__name__)
+# 配置主日志记录器
+logger = setup_logging(
+    logger_name=__name__,
+    level="INFO",  # 默认级别，可以通过环境变量覆盖
+    format_string="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    log_to_file=True,
+    log_file="backend.log"
+)
 
 # 导入配置和模块
 from .core.config import config
 from .core.recognizer import SignLanguageRecognizer
 from .services.translator import TranslationService
+from .utils.common_utils import service_manager, get_service_response
+from .utils.error_handler import ErrorResponse
 
 # 导入API路由
 from .api.routes.flask_compat import router as flask_compat_router, init_translator
@@ -47,7 +49,8 @@ async def lifespan(app: FastAPI):
         # 与ai_services保持一致：使用全局变量
         from .api.routes.flask_compat import translator as global_translator
         if init_translator():
-            app.state.translation_service = TranslationService(global_translator)
+            translation_service = TranslationService(global_translator)
+            service_manager.set_service(translation_service)
             logger.info("✅ 识别器初始化成功！")
         else:
             logger.warning("识别器未初始化，相关接口将返回未就绪")
@@ -71,14 +74,16 @@ async def lifespan(app: FastAPI):
 
     try:
         # 清理资源
-        if hasattr(app.state, 'translation_service'):
+        service = service_manager.get_service()
+        if service:
             # 重置统计信息
-            app.state.translation_service.reset_statistics()
-            logger.info("✅ 翻译服务已清理")
+            service.reset_statistics()
+            logger.info("✅ 翻译服务统计信息已重置")
 
         # 关闭识别器
-        if 'recognizer' in locals():
-            recognizer.__del__()
+        service = service_manager.get_service()
+        if service and hasattr(service, 'recognizer'):
+            service.recognizer.close()
             logger.info("✅ 识别器已关闭")
 
     except Exception as e:
@@ -143,93 +148,109 @@ app.include_router(flask_compat_router)
 
 @app.post("/recognize/realtime")
 async def recognize_realtime_root(payload: dict = Body(...)):
-    service = getattr(app.state, 'translation_service', None)
-    if service is None:
-        return {"success": False, "message": "服务未初始化"}
+    if not service_manager.is_service_ready():
+        return ErrorResponse.service_unavailable("服务未初始化")
+
     image = payload.get("image")
     fmt = payload.get("format", "jpeg")
     quality = int(payload.get("quality", 80))
+
+    if not image:
+        return ErrorResponse.bad_request("缺少图像数据")
+
+    service = service_manager.get_service()
     result = service.recognize_from_base64(image, format=fmt, quality=quality)
-    return {
-        "success": result.success,
-        "detected": result.detected,
-        "word": result.predicted_class,
-        "confidence": result.confidence,
-    }
+
+    # 添加到历史记录
+    if result.detected and result.predicted_class:
+        service_manager.add_to_history(result.predicted_class, result.predicted_class)
+
+    return get_service_response(result)
 
 @app.post("/recognize/batch")
 async def recognize_batch_root(payload: dict = Body(...)):
-    service = getattr(app.state, 'translation_service', None)
-    if service is None:
-        return {"success": False, "message": "服务未初始化"}
+    if not service_manager.is_service_ready():
+        return ErrorResponse.service_unavailable("服务未初始化")
+
     images = payload.get("images", [])
     fmt = payload.get("format", "jpeg")
     quality = int(payload.get("quality", 80))
-    outputs = []
-    for img in images:
-        r = service.recognize_from_base64(img, format=fmt, quality=quality)
-        outputs.append({
-            "success": r.success,
-            "detected": r.detected,
-            "word": r.predicted_class,
-            "confidence": r.confidence,
-        })
-    return {"success": True, "results": outputs}
 
-_history = []
+    if not images:
+        return ErrorResponse.bad_request("缺少图像数据")
+
+    service = service_manager.get_service()
+    outputs = []
+
+    for img in images:
+        result = service.recognize_from_base64(img, format=fmt, quality=quality)
+        outputs.append(get_service_response(result))
+
+        # 添加到历史记录
+        if result.detected and result.predicted_class:
+            service_manager.add_to_history(result.predicted_class, result.predicted_class)
+
+    return {"success": True, "results": outputs}
 
 @app.get("/recognize/history")
 async def recognize_history_root():
-    return {"success": True, "history": _history[-100:]}
+    history = service_manager.get_history()
+    return {"success": True, "history": history}
 
 @app.websocket("/ws")
 async def websocket_endpoint(ws: WebSocket):
+    from .utils.common_utils import parse_websocket_payload, create_websocket_response
+    import json
+
     await ws.accept()
     try:
         while True:
             data = await ws.receive_text()
-            try:
-                import json
-                payload = json.loads(data)
-            except Exception:
-                await ws.send_text('{"type":"error","message":"invalid json"}')
+
+            # 解析消息
+            payload, error_msg = parse_websocket_payload(data)
+            if error_msg:
+                await ws.send_text(json.dumps({"type": "error", "message": error_msg}, ensure_ascii=False))
                 continue
-            service = getattr(app.state, 'translation_service', None)
+
+            # 处理图像识别请求
             if isinstance(payload, dict) and payload.get("type") == "image":
                 img = payload.get("data")
-                if service:
-                    r = service.recognize_from_base64(img)
-                    resp = {
-                        "type": "recognition_result",
-                        "data": r.model_dump() if hasattr(r, "model_dump") else r.dict(),
-                        "signInput": r.predicted_class or "",
-                        "signTranslation": r.predicted_class or "",
-                    }
+                if not img:
+                    resp = create_websocket_response(error_message="缺少图像数据")
+                elif not service_manager.is_service_ready():
+                    resp = create_websocket_response(service_ready=False)
                 else:
-                    resp = {
-                        "type": "recognition_result",
-                        "data": {
-                            "success": False,
-                            "detected": False,
-                            "predicted_class": None,
-                            "confidence": 0.0,
-                            "message": "service not ready",
-                        },
-                        "signInput": "",
-                        "signTranslation": "",
-                    }
-                _history.append({
-                    "signInput": resp["signInput"],
-                    "signTranslation": resp["signTranslation"],
-                })
+                    service = service_manager.get_service()
+                    result = service.recognize_from_base64(img)
+                    predicted_class = result.predicted_class if result.success else None
+                    resp = create_websocket_response(predicted_class=predicted_class)
+
+                    # 添加到历史记录
+                    if result.detected and result.predicted_class:
+                        service_manager.add_to_history(result.predicted_class, result.predicted_class)
+
                 await ws.send_text(json.dumps(resp, ensure_ascii=False))
+
+            # 处理普通消息
             elif isinstance(payload, dict) and "message" in payload:
                 msg = str(payload.get("message"))
                 await ws.send_text(json.dumps({"response": msg}, ensure_ascii=False))
+
             else:
-                await ws.send_text('{"type":"error","message":"unsupported payload"}')
+                resp = create_websocket_response(error_message="不支持的消息类型")
+                await ws.send_text(json.dumps(resp, ensure_ascii=False))
+
     except WebSocketDisconnect:
+        logger.info("WebSocket客户端断开连接")
         return
+    except Exception as e:
+        logger.error(f"WebSocket处理错误: {str(e)}")
+        try:
+            error_resp = create_websocket_response(error_message=f"服务器错误: {str(e)}")
+            await ws.send_text(json.dumps(error_resp, ensure_ascii=False))
+        except:
+            pass
 
 # ========== 启动方式 ==========
 

@@ -9,6 +9,9 @@ from typing import Optional, Tuple, Dict, Any
 from datetime import datetime
 import traceback
 
+# 配置日志
+from ..utils.logger_config import get_module_logger
+
 from ..core.recognizer import SignLanguageRecognizer
 from ..utils.image_processing import (
     base64_to_image,

@@ -10,12 +10,12 @@ import tensorflow as tf
 from tensorflow import keras
 import json
 import os
-import logging
 from typing import List, Tuple, Optional
 from datetime import datetime
 
 # 配置日志
-logger = logging.getLogger(__name__)
+from ..utils.logger_config import get_module_logger
+logger = get_module_logger(__name__)
 
 class SignLanguageRecognizer:
     """
@@ -263,11 +263,15 @@ class SignLanguageRecognizer:
         """
         return self.model is not None and len(self.labels) > 0
 
+    def close(self):
+        """显式清理资源"""
+        try:
+            if hasattr(self, 'hands') and self.hands:
+                self.hands.close()
+                logger.info("MediaPipe手部检测器已关闭")
+        except Exception as e:
+            logger.warning(f"关闭MediaPipe资源时出错: {str(e)}")
+
     def __del__(self):
         """析构函数，释放资源"""
-        try:
-            # 清理MediaPipe资源
-            if hasattr(self, 'hands'):
-                self.hands.close()
-        except:
-            pass
+        self.close()
