@@ -5,10 +5,11 @@ SignLink 手语翻译后端服务
 
 import logging
 import sys
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body
+from contextlib import asynccontextmanager
+
+from fastapi import Body, FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from contextlib import asynccontextmanager
 
 # 导入日志配置
 from .utils.logger_config import setup_logging
@@ -28,6 +29,9 @@ from .core.recognizer import SignLanguageRecognizer
 from .services.translator import TranslationService
 from .utils.common_utils import service_manager, get_service_response
 from .utils.error_handler import ErrorResponse
+from .database import Base, engine
+from .routers import auth as auth_router
+from .routers import users as users_router
 
 # 导入API路由
 from .api.routes.flask_compat import router as flask_compat_router, init_translator
@@ -42,6 +46,13 @@ async def lifespan(app: FastAPI):
     logger.info("=" * 60)
     logger.info(f"🚀 启动 {config.APP_NAME} v{config.APP_VERSION}")
     logger.info("=" * 60)
+
+    # 初始化数据库
+    try:
+        Base.metadata.create_all(bind=engine)
+        logger.info("✅ 数据库表检查完成")
+    except Exception as e:
+        logger.error(f"❌ 数据库初始化失败: {str(e)}")
 
     # 初始化识别器（使用ai_services的方式）
     try:
@@ -144,6 +155,8 @@ async def root():
 app.include_router(flask_compat_router)
 
 # 注册新的API路由
+app.include_router(auth_router.router)
+app.include_router(users_router.router)
  
 
 @app.post("/recognize/realtime")
