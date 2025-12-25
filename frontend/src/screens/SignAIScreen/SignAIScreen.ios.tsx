@@ -14,8 +14,9 @@ import {
     ScrollView,
 } from 'react-native';
 import TabBar from '../../components/TabBar';
-import { mediaDevices, RTCView } from 'react-native-webrtc';
-import { useChatStore, Message } from '../../store/chatStore';
+import CameraComponent from '../../components/CameraComponent';
+import { useChatStore, Message, useVideoFrameStore } from '../../store';
+import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
 
 // 常用emoji列表
 const EMOJI_LIST = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
@@ -26,98 +27,129 @@ const EMOJI_LIST = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '�
     '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '👏', '🙌', '👐'];
 
 const SignAIScreen = () => {
-    const [isLoadingCamera, setIsLoadingCamera] = useState(false);
+    // 组件引用
     const flatListRef = useRef<FlatList>(null);
-
+    const isMountedRef = useRef(true);
+    
+    // 状态管理
+    const [hasCameraPermission, setHasCameraPermission] = useState(false);
+    const [isInitializing, setIsInitializing] = useState(true);
+    
+    // 聊天状态管理 - 使用 zustand store
     const {
         messages,
         inputText,
-        isLoading,
+        isSending,
         isEmojiPickerVisible,
         isCameraVisible,
-        localStream,
         sendMessage,
         setInputText,
         toggleEmojiPicker,
         toggleCamera,
-        setLocalStream,
+        getWebSocketManager,
+        connectWebSocket,
+        disconnectWebSocket,
     } = useChatStore();
+    
+    // 视频帧管理 - 使用 videoFrameStore
+    const {
+        setWebSocketManager,
+        startCapture,
+        stopCapture,
+        setCaptureInterval,
+        captureFrame
+    } = useVideoFrameStore();
 
-    const startCamera = async () => {
-        setIsLoadingCamera(true);
+    // 检查摄像头权限
+    const checkCameraPermission = async () => {
         try {
-            const stream = await mediaDevices.getUserMedia({
-                audio: false,
-                video: {
-                    facingMode: 'user',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            });
-            setLocalStream(stream);
-        } catch (err: any) {
-            if (err?.name === 'NotAllowedError' || err?.message?.includes('permission')) {
-                Alert.alert(
-                    "权限错误",
-                    "无法获取摄像头权限。请在设置中允许应用访问摄像头。",
-                    [{ text: "确定", style: "default" }]
-                );
+            const permissionStatus = await check(PERMISSIONS.IOS.CAMERA);
+            
+            if (permissionStatus === RESULTS.GRANTED) {
+                setHasCameraPermission(true);
+                return true;
             } else {
-                Alert.alert("错误", "无法访问摄像头");
+                const result = await request(PERMISSIONS.IOS.CAMERA);
+                if (result === RESULTS.GRANTED) {
+                    setHasCameraPermission(true);
+                    return true;
+                }
             }
-            console.error('Camera error:', err);
-        } finally {
-            setIsLoadingCamera(false);
+            return false;
+        } catch (error) {
+            console.error('Error checking camera permission:', error);
+            return false;
         }
     };
 
-    const stopCamera = () => {
-        if (localStream) {
-            localStream.getTracks().forEach((track: any) => {
-                track.stop();
-            });
-            setLocalStream(null);
-        }
-    };
-
+    // 初始化组件
     useEffect(() => {
-        if (isCameraVisible) {
-            startCamera();
-        } else {
-            stopCamera();
-        }
-
-        return () => {
-            stopCamera();
+        isMountedRef.current = true;
+        
+        const initializeComponent = async () => {
+            try {
+                setIsInitializing(true);
+                // 检查摄像头权限
+                await checkCameraPermission();
+                // 确保通信方式为HTTP，避免自动连接WebSocket
+            } catch (error) {
+                console.error('Error initializing component:', error);
+            } finally {
+                if (isMountedRef.current) {
+                    setIsInitializing(false);
+                }
+            }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isCameraVisible]);
+        
+        initializeComponent();
+        
+        // 组件卸载时清理资源
+        return () => {
+            isMountedRef.current = false;
+            stopCapture(); // 停止捕获视频帧
+            disconnectWebSocket(); // 清理WebSocket连接
+        };
+    }, [disconnectWebSocket, stopCapture]);
+
+    // 处理捕获的视频帧
+    const handleFrameCaptured = async (base64Image: string) => {
+        if (!base64Image || !isMountedRef.current) return;
+        
+        // 使用videoFrameStore的captureFrame函数处理帧捕获
+        await captureFrame(base64Image, async (image) => {
+            // 这里可以根据需要处理捕获的帧
+            // 例如：发送到聊天系统进行手语识别
+        });
+    };
 
     // 滚动到底部
     useEffect(() => {
-        if (messages.length > 0) {
+        if (messages.length > 0 && isMountedRef.current) {
             setTimeout(() => {
                 flatListRef.current?.scrollToEnd({ animated: true });
             }, 100);
         }
     }, [messages]);
 
-    const handleSend = async () => {
+    // 发送消息
+    const handleSendMessage = async () => {
         if (inputText.trim()) {
             await sendMessage(inputText);
         }
     };
 
-    const insertEmoji = (emoji: string) => {
+    // 插入表情
+    const handleInsertEmoji = (emoji: string) => {
         setInputText(inputText + emoji);
     };
 
-    const renderMessage = ({ item }: { item: Message }) => {
+    // 渲染消息项
+    const renderMessageItem = ({ item }: { item: Message }) => {
         return (
             <View
                 style={[
                     styles.messageContainer,
-                    item.isUser ? styles.userMessage : styles.botMessage,
+                    item.isUser ? styles.userMessageContainer : styles.botMessageContainer,
                 ]}
             >
                 <Text style={[
@@ -130,6 +162,7 @@ const SignAIScreen = () => {
         );
     };
 
+    // 渲染主界面
     return (
         <KeyboardAvoidingView
             style={styles.container}
@@ -139,26 +172,14 @@ const SignAIScreen = () => {
             <TabBar showBackButton={true} title="AI助手" />
 
             {/* 摄像头显示区域 */}
-            {isCameraVisible && (
+            {isCameraVisible && hasCameraPermission && (
                 <View style={styles.cameraContainer}>
-                    {isLoadingCamera ? (
-                        <View style={styles.cameraLoadingContainer}>
-                            <ActivityIndicator size="large" color="#007AFF" />
-                            <Text style={styles.cameraLoadingText}>正在启动摄像头...</Text>
-                        </View>
-                    ) : localStream ? (
-                        <RTCView
-                            // @ts-ignore
-                            streamURL={localStream.toURL()}
-                            style={styles.cameraPreview}
-                            objectFit="cover"
-                            mirror={true}
-                        />
-                    ) : (
-                        <View style={styles.cameraPlaceholder}>
-                            <Text style={styles.cameraPlaceholderText}>摄像头未启动</Text>
-                        </View>
-                    )}
+                    <CameraComponent
+                        isCameraVisible={isCameraVisible}
+                        onFrameCaptured={handleFrameCaptured}
+                        wsManager={getWebSocketManager()}
+                        captureInterval={0} // 使用videoFrameStore控制捕获间隔
+                    />
                 </View>
             )}
 
@@ -166,7 +187,7 @@ const SignAIScreen = () => {
             <FlatList
                 ref={flatListRef}
                 data={messages}
-                renderItem={renderMessage}
+                renderItem={renderMessageItem}
                 keyExtractor={(item) => item.id}
                 style={styles.messagesList}
                 contentContainerStyle={styles.messagesContent}
@@ -198,17 +219,65 @@ const SignAIScreen = () => {
 
                 <TouchableOpacity
                     style={styles.signButton}
-                    onPress={toggleCamera}
+                    onPress={async () => {
+                        // 检查摄像头权限
+                        if (!hasCameraPermission) {
+                            const granted = await checkCameraPermission();
+                            if (!granted) {
+                                Alert.alert(
+                                    '需要摄像头权限',
+                                    '请在设置中启用摄像头权限以使用手语功能',
+                                    [{ text: '确定', style: 'default' }]
+                                );
+                                return;
+                            }
+                        }
+                        
+                        // 切换摄像头可见性 - 优先处理，让用户立即看到摄像头画面
+                        toggleCamera();
+                        
+                        // 检查当前摄像头状态
+                        const isTurningOn = !isCameraVisible;
+                        
+                        if (isTurningOn) {
+                            // 打开摄像头的情况
+                            try {
+                                // 异步连接WebSocket，不阻塞主线程
+                                // 摄像头已经显示，用户体验不受影响
+                                const wsManager = getWebSocketManager();
+                                if (wsManager) {
+                                    // 设置WebSocket管理器
+                                    setWebSocketManager(wsManager);
+                                    
+                                    // 设置捕获间隔为1000ms
+                                    setCaptureInterval(1000);
+                                }
+                                
+                                // 异步连接WebSocket，不阻塞摄像头显示
+                                connectWebSocket().then(() => {
+                                    // WebSocket连接成功后，开始捕获视频帧
+                                    startCapture();
+                                }).catch(error => {
+                                    console.error('WebSocket连接失败:', error);
+                                });
+                            } catch (error) {
+                                console.error('处理摄像头开启时出错:', error);
+                            }
+                        } else {
+                            // 关闭摄像头的情况
+                            stopCapture();
+                        }
+                    }}
                 >
                     <Text style={styles.signButtonText}>✋</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                    style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
-                    onPress={handleSend}
-                    disabled={!inputText.trim() || isLoading}
+                    style={[styles.sendButton, (!inputText.trim() || isSending) && styles.sendButtonDisabled]}
+                    onPress={handleSendMessage}
+                    disabled={!inputText.trim() || isSending}
                 >
-                    {isLoading ? (
+                    {isSending ? (
                         <ActivityIndicator size="small" color="#fff" />
                     ) : (
                         <Text style={styles.sendButtonText}>发送</Text>
@@ -238,7 +307,7 @@ const SignAIScreen = () => {
                                         key={index}
                                         style={styles.emojiItem}
                                         onPress={() => {
-                                            insertEmoji(emoji);
+                                            handleInsertEmoji(emoji);
                                             toggleEmojiPicker();
                                         }}
                                     >
@@ -259,6 +328,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#F9F9F9',
     },
+    // 摄像头相关样式
     cameraContainer: {
         height: 200,
         backgroundColor: '#000',
@@ -286,6 +356,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
     },
+    // 聊天消息相关样式
     messagesList: {
         flex: 1,
     },
@@ -298,11 +369,11 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         marginBottom: 12,
     },
-    userMessage: {
+    userMessageContainer: {
         alignSelf: 'flex-end',
         backgroundColor: '#007AFF',
     },
-    botMessage: {
+    botMessageContainer: {
         alignSelf: 'flex-start',
         backgroundColor: '#E5E5EA',
     },
@@ -325,6 +396,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#999',
     },
+    // 输入区域样式
     inputContainer: {
         flexDirection: 'row',
         alignItems: 'flex-end',
@@ -383,6 +455,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
     },
+    // Emoji选择器样式
     emojiModalContainer: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
