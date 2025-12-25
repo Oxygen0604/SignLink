@@ -107,7 +107,7 @@ const SignAnswerHomeScreen = () => {
                 {/* 答题排行榜模块 */}
                 <TouchableOpacity
                     style={styles.leaderboardModule}
-                    onPress={() => handleNavigate('AnswerLeaderboard')}
+                    onPress={() => handleNavigate('Leaderboard')}
                     activeOpacity={0.8}
                 >
                     <View style={styles.leaderboardHeader}>

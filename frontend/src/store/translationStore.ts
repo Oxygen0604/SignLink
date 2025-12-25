@@ -16,6 +16,7 @@ interface TranslationState {
     updateSignTranslation: (translation: string) => void;
     setError: (error: string | null) => void;
     sendImage: (imageData: string) => Promise<boolean>;
+    getWsManager: () => typeof translationWebSocketManager;
 }
 
 export const useTranslationStore = create<TranslationState>((set, get) => {
@@ -122,11 +123,10 @@ export const useTranslationStore = create<TranslationState>((set, get) => {
             set({ error });
         },
 
-        // 发送图像数据到WebSocket
-        sendImage: async (imageData: string) => {
+        // 发送图像数据到WebSocket（仅使用WebSocket）
+        sendImage: async (imageData: string): Promise<boolean> => {
             const { isConnected } = get();
             
-            // 优先使用 WebSocket
             if (isConnected && translationWebSocketManager.isConnected()) {
                 try {
                     translationWebSocketManager.send({
@@ -136,68 +136,18 @@ export const useTranslationStore = create<TranslationState>((set, get) => {
                     return true;
                 } catch (error) {
                     console.error('翻译WebSocket 发送图像数据失败:', error);
-                    // WebSocket 发送失败，尝试使用 HTTP API
-                    return await sendImageViaHTTP(imageData, set);
+                    return false;
                 }
+            } else {
+                console.warn('WebSocket未连接，无法发送图像数据');
+                return false;
             }
-            
-            // WebSocket 不可用，使用 HTTP API 作为后备
-            console.warn('WebSocket未连接，使用HTTP API发送图像数据');
-            return await sendImageViaHTTP(imageData, set);
         },
+
+        // 获取WebSocket管理器实例，用于CameraComponent
+        getWsManager: () => translationWebSocketManager,
     };
 });
 
-/**
- * 通过 HTTP API 发送图像数据（后备方案）
- */
-async function sendImageViaHTTP(
-    imageData: string, 
-    setState: (state: any) => void
-): Promise<boolean> {
-    try {
-        const result = await signRecognitionApi.realtimeRecognize(imageData);
-        
-        // 更新翻译结果
-        // 支持多种后端返回格式
-        if (result.detected !== undefined || result.word !== undefined) {
-            setState((state: any) => ({
-                ...state,
-                signInput: result.detected || result.word || ''
-            }));
-        } else if (result.input !== undefined) {
-            setState((state: any) => ({
-                ...state,
-                signInput: result.input
-            }));
-        } else if (result.signInput !== undefined) {
-            setState((state: any) => ({
-                ...state,
-                signInput: result.signInput
-            }));
-        }
-        
-        if (result.translated !== undefined || result.text !== undefined) {
-            setState((state: any) => ({
-                ...state,
-                signTranslation: result.translated || result.text || ''
-            }));
-        } else if (result.translation !== undefined) {
-            setState((state: any) => ({
-                ...state,
-                signTranslation: result.translation
-            }));
-        } else if (result.signTranslation !== undefined) {
-            setState((state: any) => ({
-                ...state,
-                signTranslation: result.signTranslation
-            }));
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('HTTP API 发送图像数据失败:', error);
-        return false;
-    }
-}
+
 

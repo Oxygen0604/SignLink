@@ -145,6 +145,9 @@ export const chatWebSocketManager = new WebSocketManager(WS_URL || 'ws://localho
 // 导出翻译WebSocket实例
 export const translationWebSocketManager = new WebSocketManager(WS_URL || 'ws://localhost:8000/ws');
 
+// 导出答题WebSocket实例
+export const answerWebSocketManager = new WebSocketManager(WS_URL || 'ws://localhost:8000/ws');
+
 /**
  * 手语识别API服务
  */
@@ -222,4 +225,5 @@ export default {
   otherApi,
   chatWebSocketManager,
   translationWebSocketManager,
+  answerWebSocketManager,
 };
