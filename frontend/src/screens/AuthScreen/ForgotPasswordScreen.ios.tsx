@@ -20,12 +20,18 @@ const ForgotPasswordScreen = () => {
   const navigation = useNavigation();
   
   // 状态管理
-  const [email, setEmail] = useState('');
-  const [resetSent, setResetSent] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [step, setStep] = useState(1); // 1: 输入手机号，2: 输入验证码和新密码
+  const [countdown, setCountdown] = useState(0);
   
   // 使用authStore
   const {
-    forgotPassword,
+    sendVerificationCode,
+    resetPassword,
     isLoading,
     error,
     clearError
@@ -38,17 +44,56 @@ const ForgotPasswordScreen = () => {
     };
   }, [clearError]);
   
-  // 处理找回密码
-  const handleForgotPassword = async () => {
-    if (!email) {
-      Alert.alert('错误', '请输入您的邮箱');
+  // 倒计时效果
+  useEffect(() => {
+    if (countdown > 0) {
+      const timer = setTimeout(() => {
+        setCountdown(countdown - 1);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [countdown]);
+  
+  // 发送验证码
+  const handleSendCode = async () => {
+    if (!phone) {
+      Alert.alert('错误', '请输入您的手机号');
       return;
     }
     
-    const success = await forgotPassword(email);
+    const success = await sendVerificationCode(phone);
     if (success) {
-      // 发送成功
-      setResetSent(true);
+      // 发送成功，开始倒计时并进入下一步
+      setCountdown(60);
+      setStep(2);
+    }
+  };
+  
+  // 重置密码
+  const handleResetPassword = async () => {
+    // 验证字段
+    if (!phone || !code || !newPassword || !confirmPassword) {
+      Alert.alert('错误', '请填写所有必填字段');
+      return;
+    }
+    
+    // 验证验证码格式
+    if (code.length !== 5 || !/^\d+$/.test(code)) {
+      Alert.alert('错误', '请输入正确的验证码（5位数字）');
+      return;
+    }
+    
+    // 验证密码一致性
+    if (newPassword !== confirmPassword) {
+      Alert.alert('错误', '两次输入的密码不一致');
+      return;
+    }
+    
+    const success = await resetPassword(phone, code, newPassword);
+    if (success) {
+      // 重置成功，导航到登录页面
+      Alert.alert('成功', '密码重置成功，请使用新密码登录');
+      navigation.navigate('Login' as never);
     }
   };
   
@@ -69,74 +114,160 @@ const ForgotPasswordScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* 顶部导航栏 */}
-        <TabBar showBackButton={true} title="找回密码" />
+        <TabBar showBackButton={true} title="找回密码" showAuthControls={false} />
         
         {/* 找回密码表单 */}
         <View style={styles.formContainer}>
-          {resetSent ? (
-            <View style={styles.successContainer}>
-              <Text style={styles.successTitle}>密码重置邮件已发送</Text>
-              <Text style={styles.successText}>
-                我们已向您的邮箱 {email} 发送了一封密码重置邮件，请查收并按照指引操作。
-              </Text>
-              <TouchableOpacity
-                style={styles.backToLoginButton}
-                onPress={navigateToLogin}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.backToLoginButtonText}>返回登录</Text>
-              </TouchableOpacity>
+          {/* 错误提示 */}
+          {error && (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
             </View>
-          ) : (
+          )}
+          
+          {step === 1 ? (
+            // 步骤1：输入手机号
             <>
               <Text style={styles.titleText}>忘记密码</Text>
-              <Text style={styles.subtitleText}>请输入您注册时使用的邮箱，我们将向您发送密码重置链接</Text>
+              <Text style={styles.subtitleText}>请输入您注册时使用的手机号，我们将向您发送验证码</Text>
               
-              {/* 错误提示 */}
-              {error && (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
-                </View>
-              )}
-              
-              {/* 邮箱输入 */}
+              {/* 手机号输入 */}
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>邮箱</Text>
+                <Text style={styles.inputLabel}>手机号</Text>
                 <TextInput
                   style={styles.textInput}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="请输入您的邮箱"
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="请输入您的手机号"
                   placeholderTextColor="#999"
-                  keyboardType="email-address"
+                  keyboardType="phone-pad"
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
               </View>
               
-              {/* 发送重置链接按钮 */}
+              {/* 发送验证码按钮 */}
               <TouchableOpacity
                 style={[styles.sendButton, isLoading && styles.sendButtonDisabled]}
-                onPress={handleForgotPassword}
+                onPress={handleSendCode}
+                disabled={isLoading || countdown > 0}
+                activeOpacity={0.8}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.sendButtonText}>发送验证码</Text>
+                )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            // 步骤2：输入验证码和新密码
+            <>
+              <Text style={styles.titleText}>验证身份</Text>
+              <Text style={styles.subtitleText}>请输入收到的验证码和新密码</Text>
+              
+              {/* 验证码输入 */}
+              <View style={styles.inputContainer}>
+                <View style={styles.codeContainer}>
+                  <TextInput
+                    style={[styles.textInput, styles.codeInput]}
+                    value={code}
+                    onChangeText={setCode}
+                    placeholder="请输入验证码"
+                    placeholderTextColor="#999"
+                    keyboardType="number-pad"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    maxLength={5}
+                  />
+                  <TouchableOpacity
+                    style={[styles.codeButton, countdown > 0 && styles.codeButtonDisabled]}
+                    onPress={handleSendCode}
+                    disabled={countdown > 0 || isLoading}
+                  >
+                    <Text style={[
+                      styles.codeButtonText,
+                      countdown > 0 && styles.codeButtonTextDisabled
+                    ]}>
+                      {countdown > 0 ? `${countdown}s后重发` : '重新发送'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {/* 新密码输入 */}
+              <View style={styles.inputContainer}>
+                <View style={styles.passwordLabelContainer}>
+                  <Text style={styles.inputLabel}>新密码</Text>
+                </View>
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    style={[styles.textInput, styles.passwordInput]}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    placeholder="请输入新密码"
+                    placeholderTextColor="#999"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIcon}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Text style={styles.eyeIconText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {/* 确认密码输入 */}
+              <View style={styles.inputContainer}>
+                <View style={styles.passwordLabelContainer}>
+                  <Text style={styles.inputLabel}>确认密码</Text>
+                </View>
+                <View style={styles.passwordInputContainer}>
+                  <TextInput
+                    style={[styles.textInput, styles.passwordInput]}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="请再次输入新密码"
+                    placeholderTextColor="#999"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeIcon}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Text style={styles.eyeIconText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              
+              {/* 重置密码按钮 */}
+              <TouchableOpacity
+                style={[styles.sendButton, isLoading && styles.sendButtonDisabled]}
+                onPress={handleResetPassword}
                 disabled={isLoading}
                 activeOpacity={0.8}
               >
                 {isLoading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.sendButtonText}>发送重置链接</Text>
+                  <Text style={styles.sendButtonText}>重置密码</Text>
                 )}
               </TouchableOpacity>
-              
-              {/* 登录链接 */}
-              <View style={styles.loginContainer}>
-                <Text style={styles.loginText}>想起密码了？</Text>
-                <TouchableOpacity onPress={navigateToLogin}>
-                  <Text style={styles.loginLink}>返回登录</Text>
-                </TouchableOpacity>
-              </View>
             </>
           )}
+          
+          {/* 登录链接 */}
+          <View style={styles.loginContainer}>
+            <Text style={styles.loginText}>想起密码了？</Text>
+            <TouchableOpacity onPress={navigateToLogin}>
+              <Text style={styles.loginLink}>返回登录</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -239,6 +370,53 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontWeight: '600',
     marginLeft: 8,
+  },
+  passwordLabelContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  passwordInputContainer: {
+    position: 'relative',
+  },
+  passwordInput: {
+    paddingRight: 50,
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 16,
+    top: '50%',
+    transform: [{ translateY: -12 }],
+  },
+  eyeIconText: {
+    fontSize: 24,
+  },
+  codeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  codeInput: {
+    flex: 1,
+    marginRight: 12,
+  },
+  codeButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 12,
+  },
+  codeButtonDisabled: {
+    backgroundColor: '#F5F5F5',
+  },
+  codeButtonText: {
+    color: '#007AFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  codeButtonTextDisabled: {
+    color: '#BDBDBD',
   },
   successContainer: {
     alignItems: 'center',

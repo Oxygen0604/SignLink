@@ -59,15 +59,6 @@ export const useTranslationStore = create<TranslationState>((set, get) => {
             isConnected: false,
             isLoading: false
         });
-        
-        // 如果不是主动关闭，尝试重连
-        if (event.code !== 1000) {
-            console.log('尝试重新连接...');
-            setTimeout(() => {
-                const { connect } = get();
-                connect();
-            }, 3000); // 3秒后重连
-        }
     });
 
     return {

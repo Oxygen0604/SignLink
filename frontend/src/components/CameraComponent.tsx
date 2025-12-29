@@ -23,8 +23,8 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
   const [isLoading, setIsLoading] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [wsReconnectAttempts, setWsReconnectAttempts] = useState(0);
   const [isWsConnected, setIsWsConnected] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user'); // 'user' 前置, 'environment' 后置
   
   // 跟踪启动状态，避免不必要的重渲染
   const isStartingRef = useRef(false);
@@ -34,8 +34,6 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
   const isCapturingRef = useRef(false);
   // RTCView 的引用，用于截图
   const cameraViewRef = useRef<any>(null);
-  // WebSocket重连定时器引用
-  const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // 用于跟踪本地流的引用，确保即使在组件卸载时也能访问
   const localStreamRef = useRef<any>(null);
   // 跟踪摄像头是否已经在运行
@@ -62,8 +60,8 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
 
   // 开始摄像头
   const startCamera = useCallback(async () => {
-    // 如果摄像头已经在启动或运行中，避免重复调用
-    if (isStartingRef.current || isCameraRunningRef.current) {
+    // 如果摄像头已经在启动中，避免重复调用
+    if (isStartingRef.current) {
       return;
     }
     
@@ -93,10 +91,11 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
       }
       
       // 权限已获取，初始化摄像头
+      console.log('Starting camera with facingMode:', facingMode);
       const stream = await mediaDevices.getUserMedia({
         audio: false,
         video: {
-          facingMode: 'user', // 前置摄像头
+          facingMode: { ideal: facingMode }, // 使用对象形式，更可靠
           width: { ideal: 480 },
           height: { ideal: 360 },
           frameRate: { ideal: 10 }
@@ -109,7 +108,7 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
       setLocalStream(stream);
       setHasPermission(true);
       
-      console.log('Camera started successfully');
+      console.log('Camera started successfully with facingMode:', facingMode);
     } catch (err: any) {
       if (err?.name === 'NotAllowedError' || err?.message?.includes('permission')) {
         Alert.alert(
@@ -130,7 +129,7 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
       setIsLoading(false);
       isStartingRef.current = false;
     }
-  }, [checkAndRequestCameraPermission]);
+  }, [checkAndRequestCameraPermission, facingMode]);
 
   // 开始捕获视频帧
   const startCapture = useCallback(() => {
@@ -206,33 +205,6 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
     stopCapture();
   }, [stopCapture]);
 
-  // WebSocket重连函数
-  const reconnectWebSocket = useCallback(() => {
-    if (!wsManager || wsReconnectAttempts >= 3) return;
-
-    setWsReconnectAttempts(prev => prev + 1);
-    
-    try {
-      wsManager.connect();
-    } catch (error) {
-      console.error('WebSocket重连失败:', error);
-      
-      // 设置下次重连
-      if (wsReconnectAttempts < 2) {
-        wsReconnectTimerRef.current = setTimeout(() => {
-          reconnectWebSocket();
-        }, 3000); // 3秒后重连
-      } else {
-        // 重连3次失败
-        Alert.alert(
-          "连接失败", 
-          "无法连接到服务器，请检查网络设置或稍后重试。",
-          [{ text: "确定", style: "default" }]
-        );
-      }
-    }
-  }, [wsManager, wsReconnectAttempts]);
-
   // 初始化WebSocket事件监听
   const initWebSocketListeners = useCallback(() => {
     if (!wsManager) return;
@@ -240,26 +212,32 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
     wsManager.onOpen(() => {
       console.log('WebSocket连接已建立');
       setIsWsConnected(true);
-      setWsReconnectAttempts(0);
     });
 
     wsManager.onClose((event: any) => {
       console.log('WebSocket连接已关闭', event.code, event.reason);
       setIsWsConnected(false);
-      
-      // 如果不是主动关闭，尝试重连
-      if (event.code !== 1000) {
-        console.log('尝试重新连接WebSocket...');
-        reconnectWebSocket();
-      }
     });
 
     wsManager.onError((error: any) => {
       console.error('WebSocket错误:', error);
       setIsWsConnected(false);
     });
-  }, [wsManager, reconnectWebSocket]);
+  }, [wsManager]);
 
+  // 切换前后摄像头
+  const toggleCamera = useCallback(async () => {
+    // 切换摄像头方向
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+    
+    // 重新启动摄像头
+    if (isCameraRunningRef.current) {
+      await stopCamera();
+      await startCamera();
+    }
+  }, [facingMode, stopCamera, startCamera]);
+  
   // 手动捕获一帧
   const handleManualCapture = useCallback(async () => {
     if (!localStream || !isWsConnected) return;
@@ -312,11 +290,7 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
       localStreamRef.current = null;
       isCameraRunningRef.current = false;
       
-      // 清除所有定时器
-      if (wsReconnectTimerRef.current) {
-        clearTimeout(wsReconnectTimerRef.current);
-        wsReconnectTimerRef.current = null;
-      }
+      // 清除捕获定时器
       if (captureIntervalRef.current) {
         clearInterval(captureIntervalRef.current);
         captureIntervalRef.current = null;
@@ -372,12 +346,6 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
   // 初始化WebSocket
   useEffect(() => {
     initWebSocketListeners();
-
-    return () => {
-      if (wsReconnectTimerRef.current) {
-        clearTimeout(wsReconnectTimerRef.current);
-      }
-    };
   }, [initWebSocketListeners]);
 
   // 权限处理
@@ -407,31 +375,40 @@ const CameraComponent: React.FC<CameraComponentProps> = memo(({
   return (
     <View style={styles.container}>
       {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>正在启动摄像头...</Text>
-        </View>
-      ) : localStream ? (
-        <View ref={cameraViewRef} style={styles.cameraPreview}>
-          <RTCView
-            // @ts-ignore
-            streamURL={localStream.toURL()}
-            style={StyleSheet.absoluteFillObject}
-            objectFit="cover"
-            mirror={true}
-          />
-          <View style={styles.cameraOverlay}>
-            <Text style={styles.overlayText}>摄像头预览</Text>
-            {wsManager && (
-              <Text style={[
-                styles.connectionStatus,
-                isWsConnected ? styles.connected : styles.disconnected
-              ]}>
-                {isWsConnected ? '已连接' : '未连接'}
-              </Text>
-            )}
-          </View>
-        </View>
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#007AFF" />
+              <Text style={styles.loadingText}>正在启动摄像头...</Text>
+            </View>
+          ) : localStream ? (
+            <View ref={cameraViewRef} style={styles.cameraPreview}>
+              <RTCView
+                // @ts-ignore
+                streamURL={localStream.toURL()}
+                style={StyleSheet.absoluteFillObject}
+                objectFit="cover"
+                mirror={facingMode === 'user'} // 只有前置摄像头镜像
+              />
+              <View style={styles.cameraOverlay}>
+                <Text style={styles.overlayText}>摄像头预览</Text>
+                <View style={styles.overlayRight}>
+                  {wsManager && (
+                    <Text style={[
+                      styles.connectionStatus,
+                      isWsConnected ? styles.connected : styles.disconnected
+                    ]}>
+                      {isWsConnected ? '已连接' : '未连接'}
+                    </Text>
+                  )}
+                  <TouchableOpacity
+                    style={styles.cameraToggleButton}
+                    onPress={toggleCamera}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.cameraToggleIcon}>🔄</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
       ) : (
         <View style={styles.placeholderContainer}>
           <Text style={styles.placeholderText}>摄像头未启动</Text>
@@ -505,6 +482,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  overlayRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   overlayText: {
     color: '#fff',
     fontSize: 16,
@@ -514,6 +495,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 14,
     fontWeight: '500',
+    marginRight: 16,
+  },
+  cameraToggleButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cameraToggleIcon: {
+    fontSize: 20,
+    color: '#fff',
   },
   connected: {
     color: '#4CAF50',

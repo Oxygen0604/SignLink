@@ -3,6 +3,12 @@
 使用 MediaPipe 进行手部关键点检测，结合深度学习模型实现手语到英文的翻译
 """
 
+# Import compatibility layer first
+try:
+    import mediapipe_solutions_compat
+except ImportError:
+    pass
+
 import cv2
 import numpy as np
 import mediapipe as mp

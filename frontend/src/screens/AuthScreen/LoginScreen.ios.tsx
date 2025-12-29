@@ -75,7 +75,7 @@ const LoginScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* 顶部导航栏 */}
-        <TabBar showBackButton={true} title="登录" />
+        <TabBar showBackButton={true} title="登录" showAuthControls={false} />
         
         {/* 登录表单 */}
         <View style={styles.formContainer}>
