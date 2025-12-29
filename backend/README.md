@@ -12,6 +12,8 @@
 ## 快速开始
 1) 安装依赖（建议 Python 3.9）  
 ```bash
+conda create -n signlink-backend python=3.9
+conda activate signlink-backend
 pip install -r requirements.txt
 ```
 

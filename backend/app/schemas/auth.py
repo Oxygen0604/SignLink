@@ -12,11 +12,13 @@ class UserPublic(BaseModel):
     id: int
     email: EmailStr
     username: str
+    is_active: bool
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
 
 class RegisterRequest(BaseModel):

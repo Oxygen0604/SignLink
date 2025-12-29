@@ -32,6 +32,8 @@ from .utils.error_handler import ErrorResponse
 from .database import Base, engine
 from .routers import auth as auth_router
 from .routers import users as users_router
+from .routers import quiz as quiz_router
+from . import models  # 显式导入模型包以确保 Base.metadata.create_all 能够识别所有模型
 
 # 导入API路由
 from .api.routes.flask_compat import router as flask_compat_router, init_translator
@@ -157,6 +159,7 @@ app.include_router(flask_compat_router)
 # 注册新的API路由
 app.include_router(auth_router.router)
 app.include_router(users_router.router)
+app.include_router(quiz_router.router)
  
 
 @app.post("/recognize/realtime")

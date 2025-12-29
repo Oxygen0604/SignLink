@@ -362,3 +362,7 @@ public/
 .DS_Store?
 ehthumbs.db
 Thumbs.db
+
+# Conductor / AI Config
+conductor/
+backend/AGENTS.md
