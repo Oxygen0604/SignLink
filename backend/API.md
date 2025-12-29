@@ -7,11 +7,17 @@
 - **POST /auth/register**  
   请求体：`{ email, password, username? }`  
   - 未提供 `username` 时，使用邮箱 `@` 前缀生成，若冲突自动追加随机数。  
-  响应：`{ access_token, token_type, user }`
+  响应：`{ access_token, token_type, user }` (用户对象已脱敏)
 
 - **POST /auth/login**  
   请求体：`{ email, password }`  
-  响应：`{ access_token, token_type, user }`
+  响应：`{ access_token, token_type, user }` (用户对象已脱敏)
+
+- **GET /auth/validate** (需登录)
+  作用：快速验证 Token 有效性。
+  - Token 有效：204 No Content
+  - Token 无效：401 Unauthorized
+  - 用户被禁用：403 Forbidden
 
 - **POST /auth/request-password-reset**  
   请求体：`{ email }`  
@@ -27,7 +33,24 @@
 - **PATCH /users/me**（需登录）  
   请求体：`{ username }`，校验唯一性后更新。
 
-## 2. 手语识别（HTTP）
+## 2. 答题模块 (Quiz)
+
+- **GET /quiz/questions**  
+  作用：获取题目列表。  
+  响应：`[{ "id": 1, "content": "...", "difficulty": "easy", ... }, ...]`
+
+- **GET /quiz/questions/{question_id}**  
+  作用：获取单题详情。
+
+- **POST /quiz/submit** (需登录)  
+  作用：提交答题结果。后端自动判断正误并记录。  
+  请求体：`{ "question_id": 1, "user_gesture_result": "hello" }`  
+  响应：`{ "is_correct": true, "correct_answer": "hello", "message": "恭喜你..." }`
+
+- **GET /quiz/records** (需登录)  
+  作用：获取当前用户的历史答题记录。
+
+## 3. 手语识别（HTTP）
 
 > 需确保模型文件存在且加载成功，否则返回「服务未初始化」。
 
@@ -42,7 +65,7 @@
 - **GET /recognize/history**  
   响应：`{ "success": true, "history": [ { "signInput": "...", "signTranslation": "...", "timestamp": "..." }, ... ] }`
 
-## 3. 手语识别（WebSocket）
+## 4. 手语识别（WebSocket）
 
 - **连接**：`ws://<host>:<port>/ws`
 - **发送示例**：  
@@ -55,7 +78,7 @@
   ```
 - 服务未就绪或格式错误时返回 `type: "error"` 或 `success: false`。
 
-## 4. 兼容接口（ai_services）
+## 5. 兼容接口（ai_services）
 
 - **POST /api/init**  
   作用：加载模型（若已加载则直接返回状态）。  
@@ -65,7 +88,7 @@
   请求体：`{ "image": "data:image/jpeg;base64,..." }`  
   响应示例：`{ "success": true, "detected": true, "word": "hello", "confidence": 0.9, "annotated_image": "data:image/jpeg;base64,..." }`
 
-## 5. 错误与限制
+## 6. 错误与限制
 - 认证失败：401；用户被禁用：403；业务冲突（用户名占用等）：400/409。  
 - 找回密码：未配置 SMTP 会直接返回 500。  
 - 识别服务未初始化：返回 `success=false` 且提示「服务未初始化」。  

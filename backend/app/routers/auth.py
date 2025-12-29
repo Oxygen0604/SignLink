@@ -114,3 +114,14 @@ def reset_password(payload: PasswordResetConfirm, db: Session = Depends(get_db))
     user_crud.update_password(db, matched_user, payload.new_password)
     user_crud.clear_reset_token(db, matched_user)
     return Message(message="密码已重置，请使用新密码登录")
+
+
+@router.get("/validate", status_code=status.HTTP_204_NO_CONTENT, summary="验证Token有效性")
+def validate_token(current_user: User = Depends(get_current_user)):
+    """
+    验证当前 Token 是否有效。
+    - **成功**: 返回 204 No Content，表示 Token 有效且用户状态正常。
+    - **401**: Token 无效、过期或用户不存在。
+    - **403**: 用户已被禁用。
+    """
+    return None
