@@ -24,7 +24,7 @@ const Navbar = () => {
             <View style={styles.rightContainer}>
                 {isAuthenticated && user ? (
                     <TouchableOpacity onPress={logout} style={styles.userContainer}>
-                        <Text style={styles.userName}>{user.name}</Text>
+                        <Text style={styles.userName}>用户ID: {user.id}</Text>
                     </TouchableOpacity>
                 ) : (
                     <View style={styles.authButtons}>

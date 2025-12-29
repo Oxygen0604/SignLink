@@ -22,6 +22,7 @@ const RegisterScreen = () => {
   // 状态管理
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -43,7 +44,7 @@ const RegisterScreen = () => {
   
   // 处理注册
   const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword) {
+    if (!name || !email || !phone || !password || !confirmPassword) {
       Alert.alert('错误', '请填写所有必填字段');
       return;
     }
@@ -53,7 +54,7 @@ const RegisterScreen = () => {
       return;
     }
     
-    const success = await register(name, email, password);
+    const success = await register(name, email, phone, password);
     if (success) {
       // 注册成功，导航到主页
       navigation.navigate('Home' as never);
@@ -77,7 +78,7 @@ const RegisterScreen = () => {
         showsVerticalScrollIndicator={false}
       >
         {/* 顶部导航栏 */}
-        <TabBar showBackButton={true} title="注册" />
+        <TabBar showBackButton={true} title="注册" showAuthControls={false} />
         
         {/* 注册表单 */}
         <View style={styles.formContainer}>
@@ -115,6 +116,21 @@ const RegisterScreen = () => {
               placeholder="请输入您的邮箱"
               placeholderTextColor="#999"
               keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          
+          {/* 手机号输入 */}
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>手机号</Text>
+            <TextInput
+              style={styles.textInput}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="请输入您的手机号"
+              placeholderTextColor="#999"
+              keyboardType="phone-pad"
               autoCapitalize="none"
               autoCorrect={false}
             />

@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HTTP_API_URL } from '@env';
 
 // 创建axios实例
@@ -12,7 +13,7 @@ const axiosInstance: AxiosInstance = axios.create({
 
 // 请求拦截器
 axiosInstance.interceptors.request.use(
-  (config) => {
+  async (config) => {
     // 在发送请求之前做些什么
     console.log('API Request:', {
       url: config.url,
@@ -22,10 +23,10 @@ axiosInstance.interceptors.request.use(
     });
     
     // 可以在这里添加认证信息，如token
-    // const token = localStorage.getItem('token');
-    // if (token) {
-    //   config.headers.Authorization = `Bearer ${token}`;
-    // }
+    const token = await AsyncStorage.getItem('auth_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     
     return config;
   },
@@ -38,7 +39,7 @@ axiosInstance.interceptors.request.use(
 
 // 响应拦截器
 axiosInstance.interceptors.response.use(
-  (response: AxiosResponse) => {
+  async (response: AxiosResponse) => {
     // 对响应数据做点什么
     console.log('API Response:', {
       url: response.config.url,
