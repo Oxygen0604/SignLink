@@ -25,7 +25,7 @@ logger = setup_logging(
 
 # 导入配置和模块
 from .core.config import config
-from .core.recognizer import SignLanguageRecognizer
+# from .core.recognizer import SignLanguageRecognizer  <-- Removed unused import
 from .services.translator import TranslationService
 from .utils.common_utils import service_manager, get_service_response
 from .utils.error_handler import ErrorResponse
@@ -33,7 +33,6 @@ from .database import Base, engine
 from .routers import auth as auth_router
 from .routers import users as users_router
 from .routers import quiz as quiz_router
-from . import models  # 显式导入模型包以确保 Base.metadata.create_all 能够识别所有模型
 
 # 导入API路由
 from .api.routes.flask_compat import router as flask_compat_router, init_translator
@@ -51,6 +50,10 @@ async def lifespan(app: FastAPI):
 
     # 初始化数据库
     try:
+        logger.info("正在加载数据库模型...")
+        from . import models
+        logger.info("✅ 数据库模型加载完成")
+        
         Base.metadata.create_all(bind=engine)
         logger.info("✅ 数据库表检查完成")
     except Exception as e:

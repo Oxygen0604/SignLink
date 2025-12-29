@@ -5,14 +5,16 @@
 
 import time
 import logging
-from typing import Optional, Tuple, Dict, Any
+from typing import Optional, Tuple, Dict, Any, TYPE_CHECKING
 from datetime import datetime
 import traceback
 
 # 配置日志
 from ..utils.logger_config import get_module_logger
 
-from ..core.recognizer import SignLanguageRecognizer
+if TYPE_CHECKING:
+    from ..core.recognizer import SignLanguageRecognizer
+
 from ..utils.image_processing import (
     base64_to_image,
     image_to_base64,
@@ -29,7 +31,7 @@ class TranslationService:
     封装识别器的功能，提供更高级的翻译接口
     """
 
-    def __init__(self, recognizer: SignLanguageRecognizer):
+    def __init__(self, recognizer: "SignLanguageRecognizer"):
         """
         初始化翻译服务
 

@@ -11,6 +11,7 @@ from ..core import security
 from ..core.config import config
 from ..crud import user as user_crud
 from ..database import get_db
+from ..deps import get_current_user
 from ..models.user import User
 from ..schemas.auth import (
     LoginRequest,

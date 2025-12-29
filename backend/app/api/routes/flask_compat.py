@@ -8,7 +8,7 @@ import base64
 import os
 import threading
 from io import BytesIO
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
 import cv2
 import numpy as np
@@ -16,7 +16,9 @@ from PIL import Image
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
-from ...core.recognizer import SignLanguageRecognizer
+if TYPE_CHECKING:
+    from ...core.recognizer import SignLanguageRecognizer
+
 from ...core.config import config
 from ...utils.error_handler import ErrorResponse, ServiceError, RecognitionError, ImageProcessingError
 
@@ -28,7 +30,7 @@ logger = get_module_logger(__name__)
 router = APIRouter()
 
 # 全局翻译器实例（与ai_services保持一致）
-translator: Optional[SignLanguageRecognizer] = None
+translator: Optional["SignLanguageRecognizer"] = None
 # 线程锁，保护全局变量
 translator_lock = threading.Lock()
 
@@ -37,6 +39,9 @@ def init_translator() -> bool:
     启动时自动初始化翻译器（与ai_services保持一致）
     """
     global translator
+    # 延迟导入以避免在应用启动早期初始化TensorFlow
+    from ...core.recognizer import SignLanguageRecognizer
+    
     with translator_lock:  # 使用线程锁保护
         try:
             model_path = config.get_model_path()
