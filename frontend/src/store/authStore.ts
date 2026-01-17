@@ -22,6 +22,8 @@ interface AuthState {
   register: (name: string, email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   resetPassword: (email: string, code: string, newPassword: string) => Promise<boolean>;
+  sendVerificationCode: (email: string) => Promise<boolean>;
+  verifyToken: () => Promise<boolean>;
   clearError: () => void;
 }
 
@@ -65,7 +67,7 @@ export const useAuthStore = create<AuthState>(
   },
   
   // 注册方法
-  register: async (name: string, email: string,password: string) => {
+  register: async (name: string, email: string, password: string) => {
     set({ isLoading: true, error: null });
     
     try {
@@ -136,20 +138,17 @@ export const useAuthStore = create<AuthState>(
   },
   
   // 重置密码方法
-  resetPassword: async (phone: string, code: string, newPassword: string) => {
+  resetPassword: async (email: string, code: string, newPassword: string) => {
     set({ isLoading: true, error: null });
     
     try {
       // 调用重置密码API
-      await authApi.resetPassword(phone, code, newPassword);
+      await authApi.resetPassword(email, code, newPassword);
       
       set({ isLoading: false, error: null });
       return true;
     } catch (error: any) {
-      set({
-        error: error.response?.data?.message || error.message || '重置密码失败，请稍后重试',
-        isLoading: false
-      });
+      set({ error: error.response?.data?.message || error.message || '重置密码失败，请稍后重试', isLoading: false });
       return false;
     }
   },
@@ -161,12 +160,17 @@ export const useAuthStore = create<AuthState>(
     try {
       // 从AsyncStorage获取token
       const token = await AsyncStorage.getItem('auth_token');
-      const userStr = await AsyncStorage.getItem('user');
       
-      if (token && userStr) {
-        const user = JSON.parse(userStr);
+      if (token) {
+        // 调用getUserInformation API验证token有效性
+        const userInfo = await authApi.getUserInformation();
+        
+        // 存储用户信息到AsyncStorage
+        await AsyncStorage.setItem('user', JSON.stringify(userInfo));
+        
+        // 更新状态
         set({
-          user,
+          user: userInfo,
           isAuthenticated: true,
           isLoading: false,
           error: null
@@ -182,11 +186,15 @@ export const useAuthStore = create<AuthState>(
         return false;
       }
     } catch (error: any) {
+      // 清除无效的token和用户信息
+      await AsyncStorage.removeItem('auth_token');
+      await AsyncStorage.removeItem('user');
+      
       set({
         user: null,
         isAuthenticated: false,
         isLoading: false,
-        error: error.message || '验证失败，请重新登录'
+        error: error.response?.data?.message || error.message || '验证失败，请重新登录'
       });
       return false;
     }

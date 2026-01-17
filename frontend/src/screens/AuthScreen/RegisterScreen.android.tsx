@@ -69,8 +69,8 @@ const RegisterScreen = () => {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={Platform.OS === 'android' ? 'height' : 'padding'}
+      keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 90}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
@@ -172,10 +172,9 @@ const RegisterScreen = () => {
           
           {/* 注册按钮 */}
           <TouchableOpacity
-            style={[styles.registerButton, isLoading && styles.registerButtonDisabled]}
+            style={[styles.registerButton, isLoading && styles.disabledButton]}
             onPress={handleRegister}
             disabled={isLoading}
-            activeOpacity={0.8}
           >
             {isLoading ? (
               <ActivityIndicator size="small" color="#fff" />
@@ -197,65 +196,59 @@ const RegisterScreen = () => {
   );
 };
 
+// 样式定义
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: '#fff',
   },
   scrollContent: {
     flexGrow: 1,
   },
   formContainer: {
-    flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 24,
     paddingBottom: 40,
   },
   titleText: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
+    marginTop: 20,
     marginBottom: 8,
   },
   subtitleText: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   errorContainer: {
-    backgroundColor: '#FFF3F3',
-    borderLeftWidth: 4,
-    borderLeftColor: '#F44336',
-    padding: 12,
-    marginBottom: 20,
+    backgroundColor: '#FFF0F0',
     borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
   },
   errorText: {
-    color: '#F44336',
+    color: '#FF3B30',
     fontSize: 14,
   },
   inputContainer: {
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '500',
     color: '#333',
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#333',
+    height: 50,
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#333',
+    backgroundColor: '#F9F9F9',
   },
   passwordLabelContainer: {
     flexDirection: 'row',
@@ -264,9 +257,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   passwordInputContainer: {
-    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   passwordInput: {
+    flex: 1,
     paddingRight: 50,
   },
   eyeIcon: {
@@ -279,40 +274,36 @@ const styles = StyleSheet.create({
     fontSize: 24,
   },
   registerButton: {
+    height: 50,
     backgroundColor: '#007AFF',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
+    borderRadius: 8,
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 24,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  registerButtonDisabled: {
-    opacity: 0.7,
+  disabledButton: {
+    opacity: 0.6,
   },
   registerButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
+    color: '#fff',
   },
   loginContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 24,
   },
   loginText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
   },
   loginLink: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#007AFF',
-    fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 4,
+    fontWeight: '500',
   },
 });
 

@@ -3,18 +3,18 @@ fastapi>=0.100.0
 uvicorn[standard]>=0.20.0
 
 
-tensorflow>=2.20.0
-scikit-learn>=1.8.0
+tensorflow>=2.15.0
+scikit-learn>=1.5.2
 
 opencv-python>=4.10.0
-mediapipe>=0.10.30
-Pillow>=12.0.0
+mediapipe>=0.9.1.0
+Pillow>=10.0.0
 
 
-numpy>=2.2.0
+numpy>=1.23.0
 
 python-multipart>=0.0.20
-aiofiles>=25.0.0
+aiofiles>=23.0.0
 
 
 asyncio-mqtt>=0.16.0

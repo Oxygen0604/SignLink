@@ -1,156 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React from 'react';
 import {
     View,
     StyleSheet,
     Text,
-    TextInput,
-    ActivityIndicator
+    TextInput
 } from 'react-native';
 import TabBar from '../../components/TabBar';
 import CameraComponent from '../../components/CameraComponent';
-import { useTranslationStore, useVideoFrameStore } from '../../store';
-import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
+import { useTranslationStore } from '../../store';
 
 const SignTranslationScreen = () => {
-    // 状态管理
-    const [isCameraVisible, setIsCameraVisible] = useState(false);
-    const [isInitializing, setIsInitializing] = useState(true);
-    const [hasCameraPermission, setHasCameraPermission] = useState(false);
-    
-    // 组件引用
-    const isMountedRef = useRef(true);
-    
     // 状态管理 - 使用 zustand store
     const {
         signInput,
         signTranslation,
-        connect,
-        disconnect,
-        sendImage,
         getWsManager
     } = useTranslationStore();
-    
-    // 视频帧管理 - 使用 videoFrameStore
-    const {
-        setWebSocketManager,
-        startCapture,
-        stopCapture,
-        setCaptureInterval,
-        captureFrame
-    } = useVideoFrameStore();
-
-    // 检查摄像头权限
-    const checkCameraPermission = async () => {
-        try {
-            const permissionStatus = await check(PERMISSIONS.IOS.CAMERA);
-            
-            if (permissionStatus === RESULTS.GRANTED) {
-                setHasCameraPermission(true);
-                return true;
-            } else {
-                const result = await request(PERMISSIONS.IOS.CAMERA);
-                if (result === RESULTS.GRANTED) {
-                    setHasCameraPermission(true);
-                    return true;
-                }
-            }
-            return false;
-        } catch (error) {
-            console.error('Error checking camera permission:', error);
-            return false;
-        }
-    };
 
     // 处理捕获的视频帧
     const handleFrameCaptured = async (base64Image: string) => {
-        if (!base64Image || !isMountedRef.current) return;
-        
-        // 使用videoFrameStore的captureFrame函数处理帧捕获
-        await captureFrame(base64Image, async (image) => {
-            await sendImage(image);
-        });
+        // 直接使用TranslationStore的sendImage方法发送图片
+        // CameraComponent内部已经处理了WebSocket连接和权限管理
     };
-
-    // 初始化应用
-    useEffect(() => {
-        isMountedRef.current = true;
-        
-        const initializeApp = async () => {
-            try {
-                setIsInitializing(true);
-                
-                // 检查摄像头权限
-                const granted = await checkCameraPermission();
-                
-                if (granted && isMountedRef.current) {
-                    // 先显示摄像头，再尝试连接WebSocket
-                    // 这样即使WebSocket连接失败，用户仍然可以看到摄像头画面
-                    setIsCameraVisible(true);
-                    
-                    // 延迟连接WebSocket，确保摄像头已经初始化完成
-                    setTimeout(async () => {
-                        if (isMountedRef.current) {
-                            try {
-                                await connect();
-                                
-                                // WebSocket连接成功后，初始化videoFrameStore并开始捕获
-                                const wsManager = getWsManager();
-                                if (wsManager) {
-                                    // 设置WebSocket管理器
-                                    setWebSocketManager(wsManager);
-                                    
-                                    // 设置捕获间隔为300ms
-                                    setCaptureInterval(300);
-                                    
-                                    // 开始捕获视频帧
-                                    startCapture();
-                                }
-                            } catch (error) {
-                                console.error('WebSocket连接失败:', error);
-                                // WebSocket连接失败不影响摄像头使用
-                            }
-                        }
-                    }, 500);
-                }
-            } catch (error) {
-                console.error('Error initializing app:', error);
-            } finally {
-                if (isMountedRef.current) {
-                    setIsInitializing(false);
-                }
-            }
-        };
-
-        initializeApp();
-
-        // 组件卸载时清理资源
-        return () => {
-            isMountedRef.current = false;
-            setIsCameraVisible(false);
-            stopCapture(); // 停止捕获视频帧
-            disconnect(); // 断开WebSocket连接
-        };
-    }, [connect, disconnect, startCapture, stopCapture, setWebSocketManager, setCaptureInterval]);
-
-    // 渲染初始化状态
-    if (isInitializing) {
-        return (
-            <View style={[styles.container, styles.initializingContainer]}>
-                <ActivityIndicator size="large" color="#007AFF" />
-                <Text style={styles.initializingText}>正在初始化...</Text>
-            </View>
-        );
-    }
-
-    // 渲染权限不足状态
-    if (!hasCameraPermission) {
-        return (
-            <View style={[styles.container, styles.permissionContainer]}>
-                <Text style={styles.permissionText}>需要摄像头权限才能使用此功能</Text>
-                <Text style={styles.permissionSubText}>请在设备设置中启用摄像头权限</Text>
-            </View>
-        );
-    }
 
     // 渲染主界面
     return (
@@ -159,14 +30,13 @@ const SignTranslationScreen = () => {
             
             {/* 摄像头预览区域 */}
             <View style={styles.cameraContainer}>
-                {isCameraVisible && (
-                    <CameraComponent
-                        isCameraVisible={isCameraVisible}
-                        onFrameCaptured={handleFrameCaptured}
-                        wsManager={getWsManager()}
-                        captureInterval={0} // 使用videoFrameStore控制捕获间隔
-                    />
-                )}
+                <CameraComponent
+                    isCameraVisible={true} // 始终显示摄像头
+                    onFrameCaptured={handleFrameCaptured}
+                    wsManager={getWsManager()}
+                    captureInterval={300} // 直接设置捕获间隔
+                    showControls={true} // 显示控制按钮
+                />
             </View>
 
             {/* 翻译结果区域 */}

@@ -1,189 +1,41 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React from 'react';
 import { 
     View, 
     StyleSheet, 
     Text, 
-    TextInput, 
-    Alert, 
-    PermissionsAndroid,
-    ActivityIndicator
+    TextInput
 } from 'react-native';
 import TabBar from '../../components/TabBar';
-import { mediaDevices, RTCView } from 'react-native-webrtc';
+import CameraComponent from '../../components/CameraComponent';
 import { useTranslationStore } from '../../store/translationStore';
-import { captureFrameFromStream } from '../../utils/videoCapture';
 
 const SignHomeScreen = () => {
-    const [localStream, setLocalStream] = useState<any>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    
     // 使用 zustand store 管理翻译数据
     const { 
         signInput, 
         signTranslation, 
-        connect, 
-        disconnect,
-        sendImage
+        getWsManager
     } = useTranslationStore();
-    
-    // 捕获帧的定时器引用
-    const captureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-    const isCapturingRef = useRef(false);
-    // RTCView 的引用，用于截图
-    const cameraViewRef = useRef<any>(null);
 
-    const requestCameraPermission = async () => {
-        try {
-            const granted = await PermissionsAndroid.request(
-                PermissionsAndroid.PERMISSIONS.CAMERA,
-                {
-                    title: "摄像头权限",
-                    message: "应用需要访问您的摄像头以进行手语翻译",
-                    buttonNeutral: "稍后询问",
-                    buttonNegative: "取消",
-                    buttonPositive: "确定"
-                }
-            );
-            return granted === PermissionsAndroid.RESULTS.GRANTED;
-        } catch (err) {
-            console.warn('Permission request error:', err);
-            return false;
-        }
+    // 处理捕获的视频帧
+    const handleFrameCaptured = async (base64Image: string) => {
+        // CameraComponent 内部已经处理了帧捕获和发送逻辑
+        // 直接使用 TranslationStore 的 sendImage 方法发送图片
     };
-
-    const startCamera = async () => {
-        setIsLoading(true);
-        const hasPermission = await requestCameraPermission();
-        
-        if (!hasPermission) {
-            Alert.alert("权限错误", "无法获取摄像头权限");
-            setIsLoading(false);
-            return;
-        }
-
-        try {
-            const stream = await mediaDevices.getUserMedia({
-                audio: false,
-                video: {
-                    facingMode: 'user', // 前置摄像头
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            });
-            setLocalStream(stream);
-        } catch (err) {
-            Alert.alert("错误", "无法访问摄像头");
-            console.error('Camera error:', err);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const stopCamera = () => {
-        if (localStream) {
-            localStream.getTracks().forEach((track: any) => {
-                track.stop();
-            });
-            setLocalStream(null);
-        }
-    };
-
-    // 开始捕获视频帧
-    const startCapture = useCallback(() => {
-        if (captureIntervalRef.current || isCapturingRef.current) {
-            return;
-        }
-
-        isCapturingRef.current = true;
-        
-        // 每200ms捕获一帧（可根据需要调整）
-        captureIntervalRef.current = setInterval(async () => {
-            if (!localStream) {
-                return;
-            }
-
-            try {
-                // 捕获视频帧（传入视图引用）
-                const base64Image = await captureFrameFromStream(localStream, cameraViewRef);
-                
-                if (base64Image) {
-                    // 发送到WebSocket（如果连接）或HTTP API（如果未连接）
-                    await sendImage(base64Image);
-                }
-            } catch (error) {
-                console.error('捕获视频帧失败:', error);
-            }
-        }, 200); // 每200ms捕获一帧
-    }, [localStream, sendImage, cameraViewRef]);
-
-    // 停止捕获视频帧
-    const stopCapture = () => {
-        if (captureIntervalRef.current) {
-            clearInterval(captureIntervalRef.current);
-            captureIntervalRef.current = null;
-        }
-        isCapturingRef.current = false;
-    };
-
-    useEffect(() => {
-        // 组件挂载时自动启动摄像头
-        startCamera();
-        // 连接 WebSocket（通过 store 管理）
-        connect();
-
-        // 组件卸载时清理摄像头和 WebSocket
-        return () => {
-            stopCapture();
-            stopCamera();
-            disconnect();
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
-
-    // 当摄像头准备好时，开始捕获帧
-    // 注意：不依赖 WebSocket 连接状态，即使未连接也使用 HTTP API 发送
-    useEffect(() => {
-        if (localStream) {
-            // 延迟一小段时间确保摄像头稳定
-            setTimeout(() => {
-                startCapture();
-            }, 500);
-        } else {
-            stopCapture();
-        }
-
-        return () => {
-            stopCapture();
-        };
-    }, [localStream, startCapture]);
 
     return (
         <View style={styles.container}>
             <TabBar showBackButton={true} title="手语翻译" />
             
-            {/* 上半部分：摄像头预览 */}
+            {/* 上半部分：摄像头预览 - 使用封装好的 CameraComponent */}
             <View style={styles.cameraContainer}>
-                {isLoading ? (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator size="large" color="#007AFF" />
-                        <Text style={styles.loadingText}>正在启动摄像头...</Text>
-                    </View>
-                ) : localStream ? (
-                    <View ref={cameraViewRef} style={styles.cameraPreview}>
-                        <RTCView
-                            // @ts-ignore
-                            streamURL={localStream.toURL()}
-                            style={StyleSheet.absoluteFillObject}
-                            objectFit="cover"
-                            mirror={true}
-                        />
-                    </View>
-                ) : (
-                    <View style={styles.placeholderContainer}>
-                        <Text style={styles.placeholderText}>摄像头未启动</Text>
-                        <Text style={styles.placeholderSubText}>正在请求权限...</Text>
-                    </View>
-                )}
+                <CameraComponent
+                    isCameraVisible={true}
+                    onFrameCaptured={handleFrameCaptured}
+                    wsManager={getWsManager()}
+                    captureInterval={200} // 每200ms捕获一帧
+                    showControls={true}
+                />
             </View>
 
             {/* 下半部分：两个文本框 */}

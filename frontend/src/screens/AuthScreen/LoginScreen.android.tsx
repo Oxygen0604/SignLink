@@ -15,20 +15,18 @@ import { useNavigation } from '@react-navigation/native';
 import TabBar from '../../components/TabBar';
 import { useAuthStore } from '../../store/authStore';
 
-const RegisterScreen = () => {
+const LoginScreen = () => {
   // 导航引用
   const navigation = useNavigation();
   
   // 状态管理
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   
   // 使用authStore
   const {
-    register,
+    login,
     isLoading,
     error,
     clearError
@@ -41,48 +39,48 @@ const RegisterScreen = () => {
     };
   }, [clearError]);
   
-  // 处理注册
-  const handleRegister = async () => {
-    if (!name || !email || !password || !confirmPassword) {
+  // 处理登录
+  const handleLogin = async () => {
+    if (!email || !password) {
       Alert.alert('错误', '请填写所有必填字段');
       return;
     }
     
-    if (password !== confirmPassword) {
-      Alert.alert('错误', '两次输入的密码不一致');
-      return;
-    }
-    
-    const success = await register(name, email, password);
+    const success = await login(email, password);
     if (success) {
-      // 注册成功，导航到主页
+      // 登录成功，导航到主页
       navigation.navigate('Home' as never);
     }
   };
   
-  // 导航到登录页面
-  const navigateToLogin = () => {
-    navigation.navigate('Login' as never);
+  // 导航到注册页面
+  const navigateToRegister = () => {
+    navigation.navigate('Register' as never);
+  };
+  
+  // 导航到忘记密码页面
+  const navigateToForgotPassword = () => {
+    navigation.navigate('ForgotPassword' as never);
   };
   
   // 渲染主界面
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={Platform.OS === 'android' ? 'height' : 'padding'}
+      keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 90}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* 顶部导航栏 */}
-        <TabBar showBackButton={true} title="注册" showAuthControls={false} />
+        <TabBar showBackButton={true} title="登录" showAuthControls={false} />
         
-        {/* 注册表单 */}
+        {/* 登录表单 */}
         <View style={styles.formContainer}>
-          <Text style={styles.titleText}>创建账号</Text>
-          <Text style={styles.subtitleText}>请填写以下信息创建您的账号</Text>
+          <Text style={styles.titleText}>欢迎回来</Text>
+          <Text style={styles.subtitleText}>请登录您的账号</Text>
           
           {/* 错误提示 */}
           {error && (
@@ -90,20 +88,6 @@ const RegisterScreen = () => {
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
-          
-          {/* 姓名输入 */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.inputLabel}>姓名</Text>
-            <TextInput
-              style={styles.textInput}
-              value={name}
-              onChangeText={setName}
-              placeholder="请输入您的姓名"
-              placeholderTextColor="#999"
-              autoCapitalize="words"
-              autoCorrect={false}
-            />
-          </View>
           
           {/* 邮箱输入 */}
           <View style={styles.inputContainer}>
@@ -124,6 +108,9 @@ const RegisterScreen = () => {
           <View style={styles.inputContainer}>
             <View style={styles.passwordLabelContainer}>
               <Text style={styles.inputLabel}>密码</Text>
+              <TouchableOpacity onPress={navigateToForgotPassword}>
+                <Text style={styles.forgotPasswordText}>忘记密码？</Text>
+              </TouchableOpacity>
             </View>
             <View style={styles.passwordInputContainer}>
               <TextInput
@@ -145,50 +132,24 @@ const RegisterScreen = () => {
             </View>
           </View>
           
-          {/* 确认密码输入 */}
-          <View style={styles.inputContainer}>
-            <View style={styles.passwordLabelContainer}>
-              <Text style={styles.inputLabel}>确认密码</Text>
-            </View>
-            <View style={styles.passwordInputContainer}>
-              <TextInput
-                style={[styles.textInput, styles.passwordInput]}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                placeholder="请再次输入密码"
-                placeholderTextColor="#999"
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Text style={styles.eyeIconText}>{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          
-          {/* 注册按钮 */}
+          {/* 登录按钮 */}
           <TouchableOpacity
-            style={[styles.registerButton, isLoading && styles.registerButtonDisabled]}
-            onPress={handleRegister}
+            style={[styles.loginButton, isLoading && styles.disabledButton]}
+            onPress={handleLogin}
             disabled={isLoading}
-            activeOpacity={0.8}
           >
             {isLoading ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text style={styles.registerButtonText}>注册</Text>
+              <Text style={styles.loginButtonText}>登录</Text>
             )}
           </TouchableOpacity>
           
-          {/* 登录链接 */}
-          <View style={styles.loginContainer}>
-            <Text style={styles.loginText}>已有账号？</Text>
-            <TouchableOpacity onPress={navigateToLogin}>
-              <Text style={styles.loginLink}>立即登录</Text>
+          {/* 注册链接 */}
+          <View style={styles.registerContainer}>
+            <Text style={styles.registerText}>没有账号？</Text>
+            <TouchableOpacity onPress={navigateToRegister}>
+              <Text style={styles.registerLink}>立即注册</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -197,65 +158,59 @@ const RegisterScreen = () => {
   );
 };
 
+// 样式定义
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9F9F9',
+    backgroundColor: '#fff',
   },
   scrollContent: {
     flexGrow: 1,
   },
   formContainer: {
-    flex: 1,
     paddingHorizontal: 24,
-    paddingTop: 24,
     paddingBottom: 40,
   },
   titleText: {
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
+    marginTop: 20,
     marginBottom: 8,
   },
   subtitleText: {
     fontSize: 16,
     color: '#666',
-    marginBottom: 32,
+    marginBottom: 24,
   },
   errorContainer: {
-    backgroundColor: '#FFF3F3',
-    borderLeftWidth: 4,
-    borderLeftColor: '#F44336',
-    padding: 12,
-    marginBottom: 20,
+    backgroundColor: '#FFF0F0',
     borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
   },
   errorText: {
-    color: '#F44336',
+    color: '#FF3B30',
     fontSize: 14,
   },
   inputContainer: {
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '500',
     color: '#333',
     marginBottom: 8,
   },
   textInput: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    color: '#333',
+    height: 50,
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#333',
+    backgroundColor: '#F9F9F9',
   },
   passwordLabelContainer: {
     flexDirection: 'row',
@@ -263,10 +218,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
+  forgotPasswordText: {
+    fontSize: 14,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
   passwordInputContainer: {
-    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   passwordInput: {
+    flex: 1,
     paddingRight: 50,
   },
   eyeIcon: {
@@ -278,42 +240,38 @@ const styles = StyleSheet.create({
   eyeIconText: {
     fontSize: 24,
   },
-  registerButton: {
+  loginButton: {
+    height: 50,
     backgroundColor: '#007AFF',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
+    borderRadius: 8,
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 24,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  registerButtonDisabled: {
-    opacity: 0.7,
+  disabledButton: {
+    opacity: 0.6,
   },
-  registerButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
+  loginButtonText: {
+    fontSize: 16,
     fontWeight: '600',
+    color: '#fff',
   },
-  loginContainer: {
+  registerContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 24,
   },
-  loginText: {
-    fontSize: 16,
+  registerText: {
+    fontSize: 14,
     color: '#666',
   },
-  loginLink: {
-    fontSize: 16,
+  registerLink: {
+    fontSize: 14,
     color: '#007AFF',
-    fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 4,
+    fontWeight: '500',
   },
 });
 
-export default RegisterScreen;
+export default LoginScreen;

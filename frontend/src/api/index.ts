@@ -28,9 +28,15 @@ export interface LoginResponse {
     id: string;
     name: string;
     email: string;
-    phone: string;
     role?: string;
   };
+}
+
+export interface UserInformationResponse {
+  id: string;
+  name: string;
+  email: string;
+  role?: string;
 }
 
 export interface RegisterResponse {
@@ -39,7 +45,6 @@ export interface RegisterResponse {
     id: string;
     name: string;
     email: string;
-    phone: string;
     role?: string;
   };
 }
@@ -327,7 +332,6 @@ export const authApi = {
    * 用户注册
    * @param name 用户名
    * @param email 邮箱
-   * @param phone 手机号
    * @param password 密码
    */
   register: async (name: string, email: string, password: string): Promise<RegisterResponse> => {
@@ -362,7 +366,7 @@ export const authApi = {
     });
   },
 
-  getUserinformation:async (): Promise<UserInformationResponse> => {
+  getUserInformation:async (): Promise<UserInformationResponse> => {
     return await axiosInstance.get('/auth/user');
   },
   

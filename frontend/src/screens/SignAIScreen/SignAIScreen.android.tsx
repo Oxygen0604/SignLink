@@ -1,454 +1,249 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import {
-    View,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    FlatList,
-    KeyboardAvoidingView,
-    Platform,
-    Alert,
-    ActivityIndicator,
-    Modal,
-    ScrollView,
-    PermissionsAndroid,
+  View,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView
 } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import TabBar from '../../components/TabBar';
-import { mediaDevices, RTCView } from 'react-native-webrtc';
-import { useChatStore, Message } from '../../store/chatStore';
-
-// 常用emoji列表
-const EMOJI_LIST = ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇',
-    '🙂', '🙃', '😉', '😌', '😍', '🥰', '😘', '😗', '😙', '😚',
-    '😋', '😛', '😝', '😜', '🤪', '🤨', '🧐', '🤓', '😎', '🤩',
-    '🥳', '😏', '😒', '😞', '😔', '😟', '😕', '🙁', '☹️', '😣',
-    '😖', '😫', '😩', '🥺', '😢', '😭', '😤', '😠', '😡', '🤬',
-    '👍', '👎', '👌', '✌️', '🤞', '🤟', '🤘', '👏', '🙌', '👐'];
+import { useAuthStore } from '../../store/authStore';
 
 const SignAIScreen = () => {
-    const [isLoadingCamera, setIsLoadingCamera] = useState(false);
-    const flatListRef = useRef<FlatList>(null);
-
-    const {
-        messages,
-        inputText,
-        isLoading,
-        isEmojiPickerVisible,
-        isCameraVisible,
-        localStream,
-        sendMessage,
-        setInputText,
-        toggleEmojiPicker,
-        toggleCamera,
-        setLocalStream,
-    } = useChatStore();
-
-    const requestCameraPermission = async () => {
-        try {
-            const granted = await PermissionsAndroid.request(
-                PermissionsAndroid.PERMISSIONS.CAMERA,
-                {
-                    title: "摄像头权限",
-                    message: "应用需要访问您的摄像头以进行手语识别",
-                    buttonNeutral: "稍后询问",
-                    buttonNegative: "取消",
-                    buttonPositive: "确定"
-                }
-            );
-            return granted === PermissionsAndroid.RESULTS.GRANTED;
-        } catch (err) {
-            console.warn('Permission request error:', err);
-            return false;
-        }
-    };
-
-    const startCamera = async () => {
-        setIsLoadingCamera(true);
-        const hasPermission = await requestCameraPermission();
+  // 导航引用
+  const navigation = useNavigation();
+  
+  // 状态管理
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [result, setResult] = useState('');
+  
+  // 使用authStore
+  const { isAuthenticated } = useAuthStore();
+  
+  // 处理AI交互
+  const handleAIInteraction = async () => {
+    if (!isAuthenticated) {
+      return;
+    }
+    
+    setIsProcessing(true);
+    try {
+      // 这里应该调用AI交互API
+      // 模拟API调用
+      await new Promise<void>(resolve => setTimeout(() => resolve(), 1500));
+      setResult('AI交互结果示例');
+    } catch (error) {
+      console.error('AI交互失败:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  // 清除结果
+  const handleClear = () => {
+    setResult('');
+  };
+  
+  // 渲染主界面
+  return (
+    <View style={styles.container}>
+      {/* 顶部导航栏 */}
+      <TabBar showBackButton={true} title="手语AI" showAuthControls={true} />
+      
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* 功能介绍 */}
+        <View style={styles.introContainer}>
+          <Text style={styles.sectionTitle}>AI手语助手</Text>
+          <Text style={styles.introText}>
+            与AI手语助手进行交互，学习手语知识，获取实时帮助
+          </Text>
+        </View>
         
-        if (!hasPermission) {
-            Alert.alert("权限错误", "无法获取摄像头权限");
-            setIsLoadingCamera(false);
-            return;
-        }
-
-        try {
-            const stream = await mediaDevices.getUserMedia({
-                audio: false,
-                video: {
-                    facingMode: 'user',
-                    width: { ideal: 1280 },
-                    height: { ideal: 720 }
-                }
-            });
-            setLocalStream(stream);
-        } catch (err) {
-            Alert.alert("错误", "无法访问摄像头");
-            console.error('Camera error:', err);
-        } finally {
-            setIsLoadingCamera(false);
-        }
-    };
-
-    const stopCamera = () => {
-        if (localStream) {
-            localStream.getTracks().forEach((track: any) => {
-                track.stop();
-            });
-            setLocalStream(null);
-        }
-    };
-
-    useEffect(() => {
-        if (isCameraVisible) {
-            startCamera();
-        } else {
-            stopCamera();
-        }
-
-        return () => {
-            stopCamera();
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isCameraVisible]);
-
-    // 滚动到底部
-    useEffect(() => {
-        if (messages.length > 0) {
-            setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-            }, 100);
-        }
-    }, [messages]);
-
-    const handleSend = async () => {
-        if (inputText.trim()) {
-            await sendMessage(inputText);
-        }
-    };
-
-    const insertEmoji = (emoji: string) => {
-        setInputText(inputText + emoji);
-    };
-
-    const renderMessage = ({ item }: { item: Message }) => {
-        return (
-            <View
-                style={[
-                    styles.messageContainer,
-                    item.isUser ? styles.userMessage : styles.botMessage,
-                ]}
-            >
-                <Text style={[
-                    styles.messageText,
-                    item.isUser ? styles.userMessageText : styles.botMessageText
-                ]}>
-                    {item.text}
-                </Text>
-            </View>
-        );
-    };
-
-    return (
-        <KeyboardAvoidingView
-            style={styles.container}
-            behavior={Platform.OS === 'android' ? 'height' : 'padding'}
-            keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 90}
-        >
-            <TabBar showBackButton={true} title="AI助手" />
-
-            {/* 摄像头显示区域 */}
-            {isCameraVisible && (
-                <View style={styles.cameraContainer}>
-                    {isLoadingCamera ? (
-                        <View style={styles.cameraLoadingContainer}>
-                            <ActivityIndicator size="large" color="#007AFF" />
-                            <Text style={styles.cameraLoadingText}>正在启动摄像头...</Text>
-                        </View>
-                    ) : localStream ? (
-                        <RTCView
-                            // @ts-ignore
-                            streamURL={localStream.toURL()}
-                            style={styles.cameraPreview}
-                            objectFit="cover"
-                            mirror={true}
-                        />
-                    ) : (
-                        <View style={styles.cameraPlaceholder}>
-                            <Text style={styles.cameraPlaceholderText}>摄像头未启动</Text>
-                        </View>
-                    )}
-                </View>
+        {/* 交互区域 */}
+        <View style={styles.interactionContainer}>
+          <Text style={styles.sectionTitle}>AI交互</Text>
+          
+          {/* 结果展示 */}
+          <View style={styles.resultContainer}>
+            {result ? (
+              <Text style={styles.resultText}>{result}</Text>
+            ) : (
+              <Text style={styles.placeholderText}>AI交互结果将显示在这里</Text>
             )}
-
-            {/* 聊天消息列表 */}
-            <FlatList
-                ref={flatListRef}
-                data={messages}
-                renderItem={renderMessage}
-                keyExtractor={(item) => item.id}
-                style={styles.messagesList}
-                contentContainerStyle={styles.messagesContent}
-                ListEmptyComponent={
-                    <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>开始与AI助手对话吧！</Text>
-                    </View>
-                }
-            />
-
-            {/* 输入区域 */}
-            <View style={styles.inputContainer}>
-                <TouchableOpacity
-                    style={styles.emojiButton}
-                    onPress={toggleEmojiPicker}
-                >
-                    <Text style={styles.emojiButtonText}>😊</Text>
-                </TouchableOpacity>
-
-                <TextInput
-                    style={styles.textInput}
-                    value={inputText}
-                    onChangeText={setInputText}
-                    placeholder="输入消息..."
-                    placeholderTextColor="#999"
-                    multiline={true}
-                    maxLength={500}
-                />
-
-                <TouchableOpacity
-                    style={styles.signButton}
-                    onPress={toggleCamera}
-                >
-                    <Text style={styles.signButtonText}>✋</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
-                    onPress={handleSend}
-                    disabled={!inputText.trim() || isLoading}
-                >
-                    {isLoading ? (
-                        <ActivityIndicator size="small" color="#fff" />
-                    ) : (
-                        <Text style={styles.sendButtonText}>发送</Text>
-                    )}
-                </TouchableOpacity>
-            </View>
-
-            {/* Emoji选择器 */}
-            <Modal
-                visible={isEmojiPickerVisible}
-                transparent={true}
-                animationType="slide"
-                onRequestClose={toggleEmojiPicker}
+          </View>
+          
+          {/* 操作按钮 */}
+          <View style={styles.buttonRow}>
+            <TouchableOpacity
+              style={[styles.button, styles.aiButton]}
+              onPress={handleAIInteraction}
+              disabled={isProcessing || !isAuthenticated}
             >
-                <View style={styles.emojiModalContainer}>
-                    <View style={styles.emojiModalContent}>
-                        <View style={styles.emojiModalHeader}>
-                            <Text style={styles.emojiModalTitle}>选择表情</Text>
-                            <TouchableOpacity onPress={toggleEmojiPicker}>
-                                <Text style={styles.emojiModalClose}>✕</Text>
-                            </TouchableOpacity>
-                        </View>
-                        <ScrollView style={styles.emojiList}>
-                            <View style={styles.emojiGrid}>
-                                {EMOJI_LIST.map((emoji, index) => (
-                                    <TouchableOpacity
-                                        key={index}
-                                        style={styles.emojiItem}
-                                        onPress={() => {
-                                            insertEmoji(emoji);
-                                            toggleEmojiPicker();
-                                        }}
-                                    >
-                                        <Text style={styles.emojiText}>{emoji}</Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        </ScrollView>
-                    </View>
-                </View>
-            </Modal>
-        </KeyboardAvoidingView>
-    );
+              {isProcessing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>开始AI交互</Text>
+              )}
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[styles.button, styles.clearButton]}
+              onPress={handleClear}
+              disabled={isProcessing}
+            >
+              <Text style={styles.buttonText}>清除</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {/* 功能说明 */}
+        <View style={styles.featuresContainer}>
+          <Text style={styles.sectionTitle}>功能特点</Text>
+          
+          <View style={styles.featureItem}>
+            <Text style={styles.featureNumber}>1</Text>
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>实时手语识别</Text>
+              <Text style={styles.featureDescription}>
+                AI实时识别手语动作，提供准确的翻译结果
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.featureItem}>
+            <Text style={styles.featureNumber}>2</Text>
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>智能对话</Text>
+              <Text style={styles.featureDescription}>
+                与AI进行手语相关的智能对话，获取学习建议
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.featureItem}>
+            <Text style={styles.featureNumber}>3</Text>
+            <View style={styles.featureContent}>
+              <Text style={styles.featureTitle}>个性化学习</Text>
+              <Text style={styles.featureDescription}>
+                根据学习进度提供个性化的手语学习计划
+              </Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
 };
 
+// 样式定义
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F9F9F9',
-    },
-    cameraContainer: {
-        height: 200,
-        backgroundColor: '#000',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    cameraPreview: {
-        width: '100%',
-        height: '100%',
-    },
-    cameraLoadingContainer: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    cameraLoadingText: {
-        color: '#fff',
-        fontSize: 14,
-        marginTop: 8,
-    },
-    cameraPlaceholder: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    cameraPlaceholderText: {
-        color: '#fff',
-        fontSize: 16,
-    },
-    messagesList: {
-        flex: 1,
-    },
-    messagesContent: {
-        padding: 16,
-    },
-    messageContainer: {
-        maxWidth: '75%',
-        padding: 12,
-        borderRadius: 16,
-        marginBottom: 12,
-    },
-    userMessage: {
-        alignSelf: 'flex-end',
-        backgroundColor: '#007AFF',
-    },
-    botMessage: {
-        alignSelf: 'flex-start',
-        backgroundColor: '#E5E5EA',
-    },
-    messageText: {
-        fontSize: 16,
-    },
-    userMessageText: {
-        color: '#fff',
-    },
-    botMessageText: {
-        color: '#000',
-    },
-    emptyContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingTop: 100,
-    },
-    emptyText: {
-        fontSize: 16,
-        color: '#999',
-    },
-    inputContainer: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        padding: 12,
-        backgroundColor: '#fff',
-        borderTopWidth: 1,
-        borderTopColor: '#E0E0E0',
-    },
-    emojiButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 8,
-    },
-    emojiButtonText: {
-        fontSize: 24,
-    },
-    textInput: {
-        flex: 1,
-        minHeight: 40,
-        maxHeight: 100,
-        backgroundColor: '#F5F5F5',
-        borderRadius: 20,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        fontSize: 16,
-        marginRight: 8,
-    },
-    signButton: {
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 8,
-        backgroundColor: '#F5F5F5',
-        borderRadius: 20,
-    },
-    signButtonText: {
-        fontSize: 20,
-    },
-    sendButton: {
-        backgroundColor: '#007AFF',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-        minWidth: 60,
-    },
-    sendButtonDisabled: {
-        backgroundColor: '#C7C7CC',
-    },
-    sendButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    emojiModalContainer: {
-        flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'flex-end',
-    },
-    emojiModalContent: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-        maxHeight: '50%',
-    },
-    emojiModalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E0E0E0',
-    },
-    emojiModalTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-    },
-    emojiModalClose: {
-        fontSize: 24,
-        color: '#666',
-    },
-    emojiList: {
-        maxHeight: 300,
-    },
-    emojiGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        padding: 8,
-    },
-    emojiItem: {
-        width: '12.5%',
-        aspectRatio: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    emojiText: {
-        fontSize: 28,
-    },
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 40,
+  },
+  introContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 12,
+  },
+  introText: {
+    fontSize: 16,
+    color: '#666',
+    lineHeight: 24,
+  },
+  interactionContainer: {
+    paddingHorizontal: 24,
+    paddingBottom: 32,
+  },
+  resultContainer: {
+    minHeight: 150,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    padding: 20,
+    backgroundColor: '#F9F9F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  resultText: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  placeholderText: {
+    fontSize: 16,
+    color: '#999',
+    textAlign: 'center',
+  },
+  buttonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  button: {
+    flex: 1,
+    height: 50,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  aiButton: {
+    backgroundColor: '#007AFF',
+    marginRight: 8,
+  },
+  clearButton: {
+    backgroundColor: '#E0E0E0',
+    marginLeft: 8,
+  },
+  buttonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  featuresContainer: {
+    paddingHorizontal: 24,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    marginBottom: 20,
+  },
+  featureNumber: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#007AFF',
+    marginRight: 16,
+    marginTop: 4,
+  },
+  featureContent: {
+    flex: 1,
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  featureDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 20,
+  },
 });
 
 export default SignAIScreen;
-

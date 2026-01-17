@@ -50,7 +50,7 @@ axiosInstance.interceptors.response.use(
     // 直接返回响应数据
     return response.data;
   },
-  (error) => {
+  async (error) => {
     // 处理响应错误
     console.error('API Response Error:', {
       status: error.response?.status,
@@ -64,6 +64,9 @@ axiosInstance.interceptors.response.use(
         case 401:
           // 未授权，处理登录过期等情况
           console.error('未授权，请重新登录');
+          // 清除 AsyncStorage 中的 token 和用户信息
+          await AsyncStorage.removeItem('auth_token');
+          await AsyncStorage.removeItem('user');
           break;
         case 403:
           // 禁止访问
