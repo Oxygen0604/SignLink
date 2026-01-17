@@ -33,6 +33,8 @@ from .database import Base, engine
 from .routers import auth as auth_router
 from .routers import users as users_router
 from .routers import quiz as quiz_router
+from .models.quiz import Question, UserQuizRecord
+from .database import SessionLocal
 
 # 导入API路由
 from .api.routes.flask_compat import router as flask_compat_router, init_translator
@@ -248,6 +250,68 @@ async def websocket_endpoint(ws: WebSocket):
                     # 添加到历史记录
                     if result.detected and result.predicted_class:
                         service_manager.add_to_history(result.predicted_class, result.predicted_class)
+
+                await ws.send_text(json.dumps(resp, ensure_ascii=False))
+
+            # 处理答题请求 (Secure Flow)
+            elif isinstance(payload, dict) and payload.get("type") == "answer_request":
+                img = payload.get("frame") or payload.get("data")
+                question_id = payload.get("question_id")
+                user_id = payload.get("user_id")  # 临时方案：从payload获取用户ID
+
+                if not img:
+                    resp = {"type": "answer_response", "error": "缺少图像数据"}
+                elif not question_id:
+                    resp = {"type": "answer_response", "error": "缺少题目ID"}
+                elif not service_manager.is_service_ready():
+                    resp = {"type": "answer_response", "error": "服务未初始化"}
+                else:
+                    try:
+                        # 1. 识别
+                        service = service_manager.get_service()
+                        result = service.recognize_from_base64(img)
+                        predicted_word = result.predicted_class if (result.success and result.detected) else None
+
+                        if not predicted_word:
+                            resp = {
+                                "type": "answer_response",
+                                "is_correct": False,
+                                "answer": None,
+                                "message": "未检测到手势或识别失败"
+                            }
+                        else:
+                            # 2. 验证与存库
+                            with SessionLocal() as db:
+                                question = db.query(Question).filter(Question.id == question_id).first()
+                                if not question:
+                                    resp = {"type": "answer_response", "error": "题目不存在"}
+                                else:
+                                    # 不区分大小写比对
+                                    is_correct = (predicted_word.lower().strip() == question.answer.lower().strip())
+
+                                    # 保存记录 (如果有user_id)
+                                    if user_id:
+                                        try:
+                                            uid = int(user_id)
+                                            new_record = UserQuizRecord(
+                                                user_id=uid,
+                                                question_id=question_id,
+                                                is_correct=is_correct,
+                                                user_gesture_result=predicted_word
+                                            )
+                                            db.add(new_record)
+                                            db.commit()
+                                        except ValueError:
+                                            logger.warning(f"无效的user_id格式: {user_id}")
+
+                                    resp = {
+                                        "type": "answer_response",
+                                        "is_correct": is_correct,
+                                        "answer": predicted_word
+                                    }
+                    except Exception as e:
+                        logger.error(f"答题处理错误: {str(e)}")
+                        resp = {"type": "answer_response", "error": f"服务器错误: {str(e)}"}
 
                 await ws.send_text(json.dumps(resp, ensure_ascii=False))
 

@@ -68,15 +68,17 @@ class Config:
     # AI模型配置
     MODEL_PATH: str = os.path.join(
         BASE_DIR,
-        "ai_services",
-        "set_training_translation",
+        "app",
+        "assets",
+        "models",
         "sign_language_model.h5"
     )
 
     LABELS_PATH: str = os.path.join(
         BASE_DIR,
-        "ai_services",
-        "set_training_translation",
+        "app",
+        "assets",
+        "models",
         "sign_language_labels.json"
     )
 

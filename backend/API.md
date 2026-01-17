@@ -33,7 +33,7 @@
 - **PATCH /users/me**（需登录）  
   请求体：`{ username }`，校验唯一性后更新。
 
-## 2. 答题模块 (Quiz)
+## 2. 答题与排行榜 (Quiz)
 
 - **GET /quiz/questions**  
   作用：获取题目列表。  
@@ -42,8 +42,17 @@
 - **GET /quiz/questions/{question_id}**  
   作用：获取单题详情。
 
+- **GET /quiz/rank**  
+  作用：获取排行榜（默认前10名）。  
+  响应：`[{ "rank": 1, "username": "user1", "score": 100 }, ...]`
+
+- **GET /quiz/stats** (需登录)  
+  作用：获取当前用户个人统计。  
+  响应：`{ "user_id": 1, "total_questions": 50, "correct_answers": 40, "accuracy": 80.0, "rank": 5 }`
+
 - **POST /quiz/submit** (需登录)  
-  作用：提交答题结果。后端自动判断正误并记录。  
+  *注：此接口用于纯文本结果提交，若需基于视频帧的实时判定，请使用 WebSocket*  
+  作用：提交答题结果（文本）。  
   请求体：`{ "question_id": 1, "user_gesture_result": "hello" }`  
   响应：`{ "is_correct": true, "correct_answer": "hello", "message": "恭喜你..." }`
 
@@ -65,18 +74,44 @@
 - **GET /recognize/history**  
   响应：`{ "success": true, "history": [ { "signInput": "...", "signTranslation": "...", "timestamp": "..." }, ... ] }`
 
-## 4. 手语识别（WebSocket）
+## 4. 手语识别与答题（WebSocket）
 
 - **连接**：`ws://<host>:<port>/ws`
-- **发送示例**：  
+- **通用响应**：服务未就绪或格式错误时返回 `type: "error"` 或 `success: false`。
+
+### 4.1 纯图像识别
+- **发送**：  
   ```json
   { "type": "image", "data": "data:image/jpeg;base64,..." }
   ```
-- **响应示例**：  
+- **响应**：  
   ```json
-  { "type": "recognition_result", "data": { "success": true, "detected": true, "predicted_class": "hello", "message": "识别成功" }, "signInput": "hello", "signTranslation": "hello" }
+  { 
+      "type": "recognition_result", 
+      "data": { "success": true, "detected": true, "predicted_class": "hello", ... }, 
+      "signInput": "hello", 
+      "signTranslation": "hello" 
+  }
   ```
-- 服务未就绪或格式错误时返回 `type: "error"` 或 `success: false`。
+
+### 4.2 答题请求 (Secure Flow)
+- **发送**：  
+  ```json
+  { 
+      "type": "answer_request", 
+      "frame": "data:image/jpeg;base64,...", 
+      "question_id": 123,
+      "user_id": 1  // 可选，用于记录成绩
+  }
+  ```
+- **响应**：  
+  ```json
+  { 
+      "type": "answer_response", 
+      "is_correct": true, 
+      "answer": "hello" 
+  }
+  ```
 
 ## 5. 兼容接口（ai_services）
 

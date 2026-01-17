@@ -4,6 +4,10 @@
 
 完全按照ai_services的实现方式来改造后端，确保API能真正符合业务逻辑并能正常运行。
 
+## ⚠️ **重要更新 (2026-01-17)**
+模型文件已迁移至 `backend/app/assets/models/`，后端服务不再依赖 `ai_services` 目录运行。
+但本兼容性接口 (`flask_compat.py`) 仍然保留，以确保旧版前端代码（调用 `/api/init` 和 `/api/predict`）无需修改即可正常工作。
+
 ## 🎯 **改造原则**
 
 1. **完全兼容** - 保持与ai_services的Flask服务100%兼容

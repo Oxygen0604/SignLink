@@ -3,6 +3,7 @@
 from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func, desc
 
 from ..database import get_db
 from ..deps import get_current_user
@@ -69,3 +70,75 @@ def get_user_records(
 ):
     records = db.query(RecordModel).filter(RecordModel.user_id == current_user.id).all()
     return records
+
+@router.get("/rank", summary="获取排行榜")
+def get_leaderboard(limit: int = 10, db: Session = Depends(get_db)):
+    """
+    获取答题排行榜，按正确题目数量降序排列
+    """
+    # 聚合查询：按user_id分组，统计is_correct=True的数量
+    results = db.query(
+        RecordModel.user_id, 
+        User.username,
+        func.count(RecordModel.id).label("score")
+    ).join(User, RecordModel.user_id == User.id)\
+    .filter(RecordModel.is_correct == True)\
+    .group_by(RecordModel.user_id)\
+    .order_by(desc("score"))\
+    .limit(limit)\
+    .all()
+    
+    # 格式化返回
+    leaderboard = []
+    for idx, (user_id, username, score) in enumerate(results):
+        leaderboard.append({
+            "rank": idx + 1,
+            "user_id": user_id,
+            "username": username,
+            "score": score
+        })
+    
+    return leaderboard
+
+@router.get("/stats", summary="获取个人统计信息")
+def get_user_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    获取当前用户的统计数据：总答题数、正确数、准确率、排名
+    """
+    # 总答题数
+    total_count = db.query(RecordModel).filter(RecordModel.user_id == current_user.id).count()
+    
+    # 正确数
+    correct_count = db.query(RecordModel).filter(
+        RecordModel.user_id == current_user.id,
+        RecordModel.is_correct == True
+    ).count()
+    
+    # 准确率
+    accuracy = (correct_count / total_count * 100) if total_count > 0 else 0
+    
+    # 获取我的分数
+    my_score = correct_count
+    
+    # 统计分数比我高的人数
+    # 先构建每个用户的分数子查询
+    subquery = db.query(
+        RecordModel.user_id,
+        func.count(RecordModel.id).label("score")
+    ).filter(RecordModel.is_correct == True)\
+    .group_by(RecordModel.user_id).subquery()
+    
+    better_than_me = db.query(func.count(subquery.c.user_id)).filter(subquery.c.score > my_score).scalar()
+    rank = better_than_me + 1
+    
+    return {
+        "user_id": current_user.id,
+        "username": current_user.username,
+        "total_questions": total_count,
+        "correct_answers": correct_count,
+        "accuracy": round(accuracy, 1),
+        "rank": rank
+    }

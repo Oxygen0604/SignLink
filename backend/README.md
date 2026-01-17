@@ -7,10 +7,11 @@
 - **找回密码**：生成一次性重置 Token，通过 SMTP 真实发送邮件（fastapi-mail + BackgroundTasks）。
 - **用户管理**：自动生成用户名，支持后续修改。
 - **手语识别**：提供 `/recognize/realtime`、`/ws` (WebSocket) 等接口，基于 TensorFlow + MediaPipe。
-- **答题模块**：
-    - 获取题目列表 (`GET /quiz/questions`)
-    - 提交答题结果 (`POST /quiz/submit`)
-    - 查看答题记录 (`GET /quiz/records`)
+10→- **答题模块**：
+11→    - 获取题目列表 (`GET /quiz/questions`)
+12→    - 提交答题结果 (`POST /quiz/submit` 或 WebSocket `answer_request`)
+13→    - 查看答题记录 (`GET /quiz/records`)
+14→    - 排行榜与统计 (`GET /quiz/rank`, `GET /quiz/stats`)
 
 ## 快速开始
 
@@ -28,6 +29,8 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 *默认使用 SQLite 数据库，数据文件将生成在 `backend/app/db.sqlite3`。*
+
+**注意**：模型文件已内置于 `app/assets/models/`，默认无需修改 `.env` 中的 `SIGNLANG_MODEL_PATH` 即可运行。
 
 ### 3. 初始化数据库与数据
 首次运行时，建议运行种子脚本以创建表结构并预填测试题目：

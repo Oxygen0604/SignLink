@@ -24,7 +24,7 @@ SignLink 提供了**完整的手语沟通与学习解决方案**：
 
 ### 2. 手语AI问答模块
 - **手语提问识别**：识别用户的手语提问
-- **AI智能回答**：集成大模型，生成自然语言回答
+- **AI智能回答**：基于视觉识别，返回手语对应文字
 - **手语动画展示**：将文字回答转换为手语动画展示
 
 ### 3. 互动学习答题模块
@@ -54,7 +54,7 @@ SignLink 提供了**完整的手语沟通与学习解决方案**：
 
 1. **前端** 采集用户手语提问
 2. **后端** 识别手语并转换为文字
-3. **AI处理** 调用大模型生成回答
+3. **处理** 识别手语并返回文字
 4. **结果返回** 将文字回答返回前端展示
 
 ### 互动学习答题流程
@@ -74,7 +74,7 @@ SignLink 提供了**完整的手语沟通与学习解决方案**：
 | 前端框架   | React Native 0.81, TypeScript     |
 | 状态管理   | Zustand                          |
 | 导航管理   | React Navigation                 |
-| 后端框架   | Node.js                          |
+| 后端框架   | Python (FastAPI)                 |
 | 数据库     | MongoDB                          |
 | 图像识别   | MediaPipe, OpenCV                 |
 | 机器学习   | TensorFlow/Keras, LSTM            |
@@ -141,10 +141,10 @@ yarn ios
 ```bash
 # 安装依赖
 cd backend/
-yarn install
+pip install -r requirements.txt
 
 # 启动后端服务
-yarn start
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### AI模型训练（如需重新训练）

@@ -8,11 +8,11 @@ ENV/
 sign_language_dataset/
 
 # TensorFlow/Keras model files
-*.h5
-*.hdf5
-*.pb
-*.ckpt
-*.pth
+# *.h5
+# *.hdf5
+# *.pb
+# *.ckpt
+# *.pth
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -365,4 +365,4 @@ Thumbs.db
 
 # Conductor / AI Config
 conductor/
-backend/AGENTS.md
+# backend/AGENTS.md
